@@ -10,3 +10,4 @@ allowBuilds:
   msgpackr-extract: false
   '@scarf/scarf': false
   '@swc/core': false
+  '@parcel/watcher': false

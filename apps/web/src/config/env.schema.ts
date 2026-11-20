@@ -10,9 +10,10 @@ export const serverEnvSchema = z.object({
 
 /** Variables inlined into the browser bundle. Validated separately. */
 export const publicEnvSchema = z.object({
-  NEXT_PUBLIC_API_BASE: z.string().min(1).default('/api'),
+  /** Origin of the api; empty = same origin (behind nginx, or through the dev rewrite). */
+  NEXT_PUBLIC_API_BASE: z.string().default(''),
   NEXT_PUBLIC_WS_URL: z.string().min(1).default('/'),
-  DEFAULT_LOCALE: z.enum(['uk', 'en', 'pl']).default('uk'),
+  NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(['uk', 'en', 'pl']).default('uk'),
 });
 
 export type ServerEnv = Readonly<z.infer<typeof serverEnvSchema>>;

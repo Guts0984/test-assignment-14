@@ -260,6 +260,7 @@ Assignment > CLAUDE.md > prompt. Only real conflicts are listed.
 | A-49 | Stub details | Webhook delivery is done by the stub itself from a durable outbox (`stub_webhooks`, `FOR UPDATE SKIP LOCKED`, run by every api copy) so it does not depend on the worker; chaos is deterministic (a shared counter cycles normal / duplicate / delayed / out-of-order / lost) and switchable at runtime through the test endpoint (default from `STUB_CHAOS`). The provider API (`/stub/v1/*`) requires `STUB_API_KEY`; the payment page is public by unguessable id. Refunds succeed synchronously and are confirmed by webhook. `returnUrl` may only point at our own origin. Mail stub = `infra/mailstub` workspace package (SMTP 1025 + inbox page/JSON on 8025, dedupe by Message-ID). |
 | A-50 | Money flow decisions | Payment/refund/ticket domain logic lives in `packages/platform` (shared by api and worker): `applyPaymentSucceeded` (on time -> tickets; after expiry -> re-acquire places and promo use, else full refund), `createRefund`/`applyRefundSucceeded`, `executeRefund` (Idempotency-Key = refund id; 429 -> run again later; 5xx -> retry with backoff), `processProviderEvent` (exactly-once by event id; `succeeded` wins over stale `failed`), `reconcileProvider`. Ledger postings happen when money is confirmed (payment success, refund success, payout). A user refund releases the ticket and seat immediately (QR dies at once); only the buyer who paid, for tickets still owned, not used, may refund; the amount follows `quoteRefund` and is the price actually paid (after promo); fee only on cancellation. Finance refunds the remaining tickets in full (price + fee) with a mandatory reason. Event cancellation takes the exclusive event lock, flips the status, releases unpaid holds and writes every refund + task in one set-based statement (per-row guard bypassed with `SET LOCAL app.trusted_bulk` and re-checked in the same transaction). Waitlist offers, expiry and reservation are SQL (`waitlist_offer_next`); the offer length (30 min) is duplicated in SQL and verified against `RULES` by a test. Realtime: Socket.IO + Redis adapter, every connection authenticated, rooms chosen by the server, catch-up from PG by sequence, personal events only to `user:<id>`. |
 | A-51 | Worker details | One BullMQ queue `tasks`; every handler re-checks due-ness against Postgres. Task kinds: `hold_expire`, `waitlist_expire`, `refund_execute`, `mass_cancel_notice`, `email`, `event_finish`, `payout`. Refund calls take evenly spaced slots (`reserveSlot`, 1000/15 ms, shared by all worker copies through Redis) so they never burst; the provider's own 429 is the hard limit and is retried without burning attempts. After Redis loses its data the budget restarts, so a one-second burst may be answered with 429 (retried, nothing lost or doubled). Periodic loops: queue admission every second, expiry safety sweep, provider reconciliation every minute, rehydrator. Emails are English plain text (+PDF for tickets); no per-user locale is stored. Payout waits for outstanding refunds, then posts once (unique `payouts.event_id`). A task for an old event date is a no-op after a reschedule. |
+| A-52 | Web details | Next 15 App Router with `[locale]` segment (uk default, en, pl), all FSD layers in `apps/web/src`, route files only re-export pages. Tokens: access token in memory, refresh through the httpOnly cookie (a reload silently signs back in). Seat map is a canvas with a spatial grid (hit tests and keyboard moves touch a few seats) and viewport culling; keyboard: arrows, Enter/Space, +/-, 0; a "row / seat" jump box; live region announcements. Live seats via Socket.IO when logged in (catch-up by sequence), polling every 4 s when anonymous. The hold timer always uses the server clock offset. Event times are shown in Europe/Kyiv. Money display uses `Intl` (`1 234,50 ₴` for uk and pl, `₴1,234.50` for en). Queue and waitlist panels are embedded in the event page. The generated client (`@hey-api/openapi-ts`, pinned) lives in `src/shared/api/generated`; FSD boundaries are enforced by `eslint-plugin-boundaries` and a test that lints fixtures. |
 | A-42 | Web theme/other | Tailwind, light theme only, no UI kit dependency beyond small `shared/ui`. |
 
 ---
@@ -421,7 +422,7 @@ One transaction: `pg_advisory_xact_lock(user, event)` → limit check (counts ac
 | WEB_PORT | Next port | n | 3000 | web |
 | NEXT_PUBLIC_API_BASE | browser REST base | n | /api | web |
 | NEXT_PUBLIC_WS_URL | browser WS base | n | / | web |
-| DEFAULT_LOCALE | fallback locale | n | uk | web |
+| NEXT_PUBLIC_DEFAULT_LOCALE | default locale | n | uk | web |
 | NGINX_PORT | published port | n | 8080 | compose |
 
 ---
@@ -526,7 +527,7 @@ Never push. Conventional Commits; footer per attribution rule. Before every comm
 - [x] C6 payment stub + mail stub
 - [x] C7 api money/ticket flows
 - [x] C8 worker
-- [ ] C9 web
+- [x] C9 web
 - [ ] C10 nginx + full compose + adversarial + e2e + perf
 - [ ] C11 README + docs + mutation check
 

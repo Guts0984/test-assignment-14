@@ -1,5 +1,9 @@
+import react from '@vitejs/plugin-react';
+import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  test: { include: ['src/**/*.test.ts'], exclude: ['src/**/*.int.test.ts'] },
+  plugins: [react()],
+  resolve: { alias: { '@': resolve(__dirname, 'src') } },
+  test: { include: ['src/**/*.test.{ts,tsx}'], environment: 'jsdom', setupFiles: ['./vitest.setup.ts'] },
 });

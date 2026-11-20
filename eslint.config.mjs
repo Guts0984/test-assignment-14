@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import boundaries from 'eslint-plugin-boundaries';
 import tseslint from 'typescript-eslint';
 
 const NEST_FILES = [
@@ -46,13 +47,61 @@ export default tseslint.config(
   },
   {
     // test code may read the environment and use looser helpers
-    files: ['**/*.test.ts', '**/test/**/*.ts', 'packages/testkit/src/**/*.ts', 'apps/*/e2e/**/*.ts', '**/vitest*.config.ts'],
+    files: ['**/*.test.{ts,tsx}', '**/test/**/*.ts', 'packages/testkit/src/**/*.ts', 'apps/*/e2e/**/*.ts', '**/vitest*.config.ts', 'apps/web/next.config.ts'],
     rules: { 'no-restricted-properties': 'off' },
   },
   {
     // tool configs and Next route files require default exports
-    files: ['**/*.config.{ts,mjs,js}', 'packages/testkit/src/global-setup.ts', 'apps/web/app/**/{page,layout,loading,error,not-found,template,default}.tsx'],
+    files: ['**/*.config.{ts,mjs,js}', 'apps/web/middleware.ts', 'apps/web/src/app/i18n/request.ts', 'packages/testkit/src/global-setup.ts', 'apps/web/app/**/{page,layout,loading,error,not-found,template,default}.tsx'],
     rules: { 'no-restricted-exports': 'off' },
+  },
+  {
+    // Feature-Sliced Design for the web app: a layer may only import from layers below it, never sideways between
+    // slices of one layer, and only through a slice's public API (index.ts).
+    files: ['apps/web/src/**/*.{ts,tsx}', 'apps/web/app/**/*.{ts,tsx}', 'apps/web/middleware.ts'],
+    plugins: { boundaries },
+    settings: {
+      'import/resolver': { typescript: { project: 'apps/web/tsconfig.json' } },
+      'boundaries/elements': [
+        { type: 'routes', pattern: ['apps/web/app/**', 'apps/web/middleware.ts'], mode: 'file' },
+        { type: 'config', pattern: 'apps/web/src/config', mode: 'folder' },
+        { type: 'app', pattern: 'apps/web/src/app', mode: 'folder' },
+        { type: 'pages', pattern: 'apps/web/src/pages/*', mode: 'folder', capture: ['slice'] },
+        { type: 'widgets', pattern: 'apps/web/src/widgets/*', mode: 'folder', capture: ['slice'] },
+        { type: 'features', pattern: 'apps/web/src/features/*', mode: 'folder', capture: ['slice'] },
+        { type: 'entities', pattern: 'apps/web/src/entities/*', mode: 'folder', capture: ['slice'] },
+        { type: 'shared', pattern: 'apps/web/src/shared', mode: 'folder' },
+      ],
+      'boundaries/ignore': ['**/*.test.{ts,tsx}'],
+    },
+    rules: {
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            { from: 'routes', allow: ['app', 'pages', 'shared', 'config'] },
+            { from: 'app', allow: ['pages', 'widgets', 'features', 'entities', 'shared', 'config'] },
+            { from: 'pages', allow: ['widgets', 'features', 'entities', 'shared', 'config'] },
+            { from: 'widgets', allow: ['features', 'entities', 'shared', 'config'] },
+            { from: 'features', allow: ['entities', 'shared', 'config'] },
+            { from: 'entities', allow: ['shared', 'config'] },
+            { from: 'shared', allow: ['config'] },
+            { from: 'config', allow: [] },
+          ],
+        },
+      ],
+      'boundaries/entry-point': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            { target: ['pages', 'widgets', 'features', 'entities'], allow: 'index.{ts,tsx}' },
+            { target: ['app', 'shared', 'config', 'routes'], allow: '**' },
+          ],
+        },
+      ],
+    },
   },
   { files: ['**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly' } }, rules: { 'no-console': 'off', 'no-restricted-properties': 'off' } },
 );
