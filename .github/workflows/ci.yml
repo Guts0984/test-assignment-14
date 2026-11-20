@@ -46,3 +46,28 @@ jobs:
         run: pnpm test
       - name: Integration and adversarial tests (real postgres, redis and a booted server)
         run: pnpm test:int
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare env from the example
+        run: cp .env.example .env
+      - name: Start the full stack (nginx, two api copies, worker, web, postgres, redis, mail stub)
+        run: bash scripts/stack.sh up
+      - name: Adversarial checks against the deployed stack
+        run: set -a && . ./.env && set +a && pnpm --filter @ticketing/api test:stack
+      - run: pnpm --filter @ticketing/web exec playwright install --with-deps chromium
+      - name: Browser journeys
+        run: pnpm e2e
+      - name: Stack logs on failure
+        if: failure()
+        run: bash scripts/stack.sh logs

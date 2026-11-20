@@ -10,9 +10,20 @@ import { getSocket } from '@/shared/lib/socket';
 import { observeServerTime } from '@/shared/lib/server-clock';
 import { useSession } from '@/shared/lib/session';
 
+/** The list follows the server: any `order.updated` for this user (expiry, payment, refund) refreshes it. */
 export const useMyOrders = () => {
   const session = useSession();
-  return useQuery({ ...ordersControllerListOptions(), enabled: session.status === 'authenticated' });
+  const qc = useQueryClient();
+  const query = useQuery({ ...ordersControllerListOptions(), enabled: session.status === 'authenticated' });
+  const token = session.status === 'authenticated' ? session.accessToken : null;
+  useEffect(() => {
+    if (!token) return;
+    const socket = getSocket(token);
+    const onUpdate = (): void => void qc.invalidateQueries({ queryKey: ordersControllerListOptions().queryKey });
+    socket.on('order.updated', onUpdate);
+    return () => void socket.off('order.updated', onUpdate);
+  }, [token, qc]);
+  return query;
 };
 
 export const useOrder = (id: string) => {

@@ -12,6 +12,7 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
     "gen:openapi": "node --env-file=../../.env dist/scripts/emit-openapi.js",
+    "test:stack": "vitest run --config vitest.stack.config.ts",
     "test:adv": "vitest run --config vitest.int.config.ts test/adversarial"
   },
   "dependencies": {

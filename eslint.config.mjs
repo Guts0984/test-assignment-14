@@ -47,7 +47,7 @@ export default tseslint.config(
   },
   {
     // test code may read the environment and use looser helpers
-    files: ['**/*.test.{ts,tsx}', '**/test/**/*.ts', 'packages/testkit/src/**/*.ts', 'apps/*/e2e/**/*.ts', '**/vitest*.config.ts', 'apps/web/next.config.ts'],
+    files: ['**/*.test.{ts,tsx}', '**/test/**/*.ts', 'packages/testkit/src/**/*.ts', 'apps/*/e2e/**/*.ts', 'apps/web/playwright.config.ts', '**/vitest*.config.ts', 'apps/web/next.config.ts'],
     rules: { 'no-restricted-properties': 'off' },
   },
   {

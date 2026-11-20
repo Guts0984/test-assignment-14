@@ -15,6 +15,9 @@
     "check:api-client": "node scripts/check-api-client.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "verify": "bash scripts/verify.sh",
+    "stack:up": "bash scripts/stack.sh up",
+    "stack:down": "bash scripts/stack.sh down",
+    "e2e": "bash scripts/e2e.sh",
     "build:shared": "pnpm --filter @ticketing/shared build && pnpm --filter @ticketing/platform build"
   },
   "devDependencies": {
