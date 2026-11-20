@@ -36,4 +36,14 @@ describe('queue admission by the worker', () => {
     await waitFor(async () => (await statuses())[4]?.s === 'admitted', 10_000);
     expect((await statuses()).map((r) => r.s)).toEqual(['done', 'done', 'done', 'admitted', 'admitted', 'waiting']);
   });
+
+  it('never lets more people select than the capacity, even before the 500-claimant threshold is reached', async () => {
+    const w = await createWorld(tdb.pool, { seats: 5 });
+    const users = await insertUsers(tdb.pool, 8);
+    const queue = createVirtualQueue({ pool: tdb.pool, cfg: { activateAt: 500, maxSelecting: 5, startSelectionMs: 300_000, holdTtlMs: 600_000 } });
+    const views = [];
+    for (const u of users) views.push(await queue.join(w.eventId, u));
+    expect(views.map((v) => v.status)).toEqual(['admitted', 'admitted', 'admitted', 'admitted', 'admitted', 'waiting', 'waiting', 'waiting']);
+    expect(views[7]).toMatchObject({ position: 3, queueActive: true });
+  });
 });

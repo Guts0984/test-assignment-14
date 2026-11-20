@@ -87,8 +87,9 @@ export const SeatPicker = (props: SeatPickerProps) => {
           </li>
         ))}
       </ul>
+      {/* Keyboard shortcut: invisible until it receives focus (Tab), so mouse users see a clean map. */}
       <form
-        className="flex items-end gap-2"
+        className="sr-only flex items-end gap-2 focus-within:not-sr-only"
         aria-label={t('jumpTitle')}
         onSubmit={(e) => {
           e.preventDefault();

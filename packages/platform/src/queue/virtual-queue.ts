@@ -150,7 +150,10 @@ export const createVirtualQueue = (deps: { readonly pool: Pool; readonly cfg?: Q
       )).rows[0];
       if (!ev) throw new Error(`event ${eventId} not found`);
       let active = ev.queue_active;
-      if (!active && ev.claimants + 1 > cfg.activateAt) {
+      // Below the activation threshold people walk straight in, but never more than the selection capacity at once:
+      // a burst that fills every slot turns the queue on early instead of letting the (cap + 1)-th person through.
+      const selectingNow = active ? 0 : ((await tx.query<{ n: number }>(COUNT_ACTIVE_SQL, [eventId, cfg.startSelectionMs, cfg.holdTtlMs])).rows[0]?.n ?? 0);
+      if (!active && (ev.claimants + 1 > cfg.activateAt || selectingNow >= cfg.maxSelecting)) {
         await tx.query(`UPDATE events SET queue_active = true WHERE id = $1`, [eventId]);
         active = true;
       }

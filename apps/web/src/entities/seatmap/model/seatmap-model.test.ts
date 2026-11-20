@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSeatIndex, hitTest, moveCursor } from './seat-index';
+import { buildSeatIndex, centerShortRows, hitTest, moveCursor } from './seat-index';
 import { applyChanges, effectiveStatus, fromSnapshot, type SeatChange } from './seat-state';
 
 const grid = (rows: number, cols: number) => {
@@ -73,5 +73,23 @@ describe('live state reducer', () => {
     const next = applyChanges(index, base, [{ seq: 6, seatId: null, zoneId: 'zone-1', status: 'zone', heldUntil: null, available: 17 }, change(7, 9_999, 'sold')]);
     expect(next.general.get('zone-1')).toBe(17);
     expect(next.status.every((s) => s === 0)).toBe(true);
+  });
+});
+
+describe('centerShortRows', () => {
+  const x = [0, 10, 20, 30, 0, 10];
+  const y = [0, 0, 0, 0, 10, 10];
+  const zone = [0, 0, 0, 0, 0, 0];
+  const row = ['1', '1', '1', '1', '2', '2'];
+
+  it('moves a short last row to the middle of the zone and leaves full rows alone', () => {
+    const out = centerShortRows(x, y, zone, row);
+    expect([...out.slice(0, 4)]).toEqual([0, 10, 20, 30]);
+    expect([...out.slice(4)]).toEqual([10, 20]); // centre 15, like the full row
+  });
+
+  it('keeps gaps inside a row and treats zones separately', () => {
+    const out = centerShortRows([0, 40, 100, 110], [0, 0, 0, 0], [0, 0, 1, 1], ['1', '1', '1', '1']);
+    expect([...out]).toEqual([0, 40, 100, 110]); // each row is the full width of its own zone
   });
 });

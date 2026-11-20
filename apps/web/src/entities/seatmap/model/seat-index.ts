@@ -17,11 +17,44 @@ export interface SeatIndex {
 
 const key = (cx: number, cy: number): number => cx * 100_003 + cy;
 
+/**
+ * Rows that are shorter than the widest row of their zone (a last, partly filled row) are centred on the zone instead of
+ * hugging its left edge, the way a seating chart is drawn. Full rows, and the order and gaps inside a row, are untouched.
+ */
+export const centerShortRows = (x: ArrayLike<number>, y: ArrayLike<number>, zone: ArrayLike<number>, row: ArrayLike<string>): Float32Array => {
+  const out = Float32Array.from(x);
+  const zoneSpan = new Map<number, { min: number; max: number }>();
+  const rows = new Map<string, { min: number; max: number; members: number[]; zone: number }>();
+  for (let i = 0; i < out.length; i += 1) {
+    const sx = out[i] ?? 0;
+    const z = zone[i] ?? 0;
+    const zs = zoneSpan.get(z);
+    if (zs) {
+      zs.min = Math.min(zs.min, sx);
+      zs.max = Math.max(zs.max, sx);
+    } else zoneSpan.set(z, { min: sx, max: sx });
+    const k = `${z}|${row[i] ?? ''}|${Math.round(y[i] ?? 0)}`;
+    const r = rows.get(k);
+    if (r) {
+      r.min = Math.min(r.min, sx);
+      r.max = Math.max(r.max, sx);
+      r.members.push(i);
+    } else rows.set(k, { min: sx, max: sx, members: [i], zone: z });
+  }
+  for (const r of rows.values()) {
+    const span = zoneSpan.get(r.zone);
+    if (!span || r.max - r.min >= span.max - span.min - 1e-6) continue;
+    const shift = (span.min + span.max) / 2 - (r.min + r.max) / 2;
+    for (const i of r.members) out[i] = (out[i] ?? 0) + shift;
+  }
+  return out;
+};
+
 /** Typed columns plus a uniform grid: hit tests and keyboard moves touch a handful of seats, not all 10 000. */
 export const buildSeatIndex = (layout: Pick<SeatLayoutDto, 'seats'>, cell = 24): SeatIndex => {
   const { id, x, y, zone, tier, row, number } = layout.seats;
   const count = id.length;
-  const xs = Float32Array.from(x);
+  const xs = centerShortRows(x, y, zone, row);
   const ys = Float32Array.from(y);
   let minX = Infinity;
   let minY = Infinity;
