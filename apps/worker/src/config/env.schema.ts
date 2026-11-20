@@ -14,6 +14,8 @@ export const envSchema = z.object({
   QR_SIGNING_SECRET: secret,
   PAYMENT_PROVIDER_URL: z.string().url().default('http://nginx/stub'),
   STUB_API_KEY: secret,
+  QUEUE_ACTIVATE_AT: int(500),
+  QUEUE_MAX_SELECTING: z.coerce.number().int().min(1).default(200),
   WORKER_INSTANCE_ID: z.string().min(1).default('worker-1'),
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(10),
   WORKER_REFUND_RPS: z.coerce.number().int().positive().max(19).default(15),

@@ -17,6 +17,7 @@ export const bootApi = async (db: TestDb, overrides: Readonly<Record<string, str
     DATABASE_URL: db.url,
     REDIS_URL: hostReachableRedisUrl(process.env['REDIS_URL'] ?? 'redis://localhost:6379'),
     NODE_ENV: 'test',
+    DB_POOL_MAX: '10',
     TEST_CLOCK_ENABLED: 'true',
     LOGIN_THROTTLE_IP_MAX: '100000',
     LOGIN_THROTTLE_ACCOUNT_IP_MAX: '100000',
@@ -24,7 +25,7 @@ export const bootApi = async (db: TestDb, overrides: Readonly<Record<string, str
   });
   if (!parsed.ok) throw new Error(`invalid test env: ${parsed.errors.join('; ')}`);
   const app = await createApp(parsed.env);
-  await app.listen(0, '0.0.0.0');
+  await app.listen(Number(parsed.env.API_PORT === 3001 && !overrides['API_PORT'] ? 0 : parsed.env.API_PORT), '0.0.0.0');
   const address = (await app.getUrl()).replace('[::1]', '127.0.0.1').replace('0.0.0.0', '127.0.0.1');
   return { app, baseUrl: hostReachableUrl(address).replace(/\/$/, ''), env: parsed.env, close: () => app.close() };
 };

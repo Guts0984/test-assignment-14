@@ -47,3 +47,19 @@ Real HTTP server (booted on an ephemeral port), real Postgres and Redis, attacke
 | 20 parallel refund requests against one payment | the sum never exceeds the payment | exactly 10 x 1 000 of 10 000 | `payment-stub.adv.test.ts` | pass |
 | Forged / tampered / replayed webhook signatures | `mismatch`, `malformed`, `stale` | unit-proven (property test: any one-character change fails) | `src/modules/payment-stub/domain/stub.test.ts` | pass |
 | Hostile mail subjects in the mail stub inbox | escaped | as expected | `infra/mailstub/src/mailstub.test.ts` | pass |
+| Webhook without / with wrong secret / edited body / replayed capture / not a provider event | 401 / 400, nothing changes | as expected | `payments-flow.adv.test.ts` | pass |
+| Duplicate webhook x8 in parallel; stale `failed` after `succeeded`; unknown payment | applied once, ignored, ignored | exactly one `applied` | `payments-flow.adv.test.ts` | pass |
+| Chaos webhooks (lost, duplicated, delayed, out of order) for 10 payments | every payment booked once, lost ones found by reconciliation | as expected | `payments-flow.adv.test.ts` | pass |
+| Payment arrives 11 minutes after the hold | places free -> tickets; places taken -> automatic full refund | both branches (bug #3 found and fixed) | `payments-flow.adv.test.ts` | pass |
+| 10 parallel refunds of one order; 12 racing per-ticket refunds; user vs finance refund; same idempotency key x8 | each ticket refunded once, total never above the paid amount | exact | `refunds-tickets.adv.test.ts` | pass |
+| Three workers executing one refund | one provider refund, one ledger posting | exact | `refunds-tickets.adv.test.ts` | pass |
+| Transfer then scan old / new QR; forged, edited, foreign QR | `transferred` / allow; `invalid_code` / `wrong_event` | as expected | `refunds-tickets.adv.test.ts` | pass |
+| One ticket scanned 60 times at two gates at once | exactly one `allow` | 1 / 59 | `refunds-tickets.adv.test.ts` | pass |
+| Scanner of another event, buyer or finance using scanner/finance endpoints | 404 / 403 | as expected | `refunds-tickets.adv.test.ts` | pass |
+| Transfer to unknown / same user / too late / used / refunded ticket; double transfer | `TRANSFER_NOT_ALLOWED` with reason; one winner | as expected | `refunds-tickets.adv.test.ts` | pass |
+| Cancel an event with 40 paid orders, an unpaid hold and an awaiting-payment order | sales/transfers/entry stop at once; one refund per order incl. fee; repeat is a no-op; each refunded once in chaos mode; progress observable | as expected | `cancel-finance.adv.test.ts` | pass |
+| Waitlist: refund on a sold-out event; offer expiry; leaving with a live offer | one offer at a time, seat reserved, next person after 30 min | as expected | `waitlist-queue.adv.test.ts` | pass |
+| Queue: limit 1; reload and 25 parallel tabs; 300 joiners via both copies | one place per account; at most the capacity admitted; positions 1..N | as expected | `waitlist-queue.adv.test.ts` | pass |
+| Sockets: no/invalid/revoked token; draft, foreign admin room, invented rooms; personal events; flood | rejected; only the addressee hears; throttled | as expected | `realtime.adv.test.ts` | pass |
+| Seat held through copy A seen on copy B; Redis flushed; reconnect catch-up | < 1 s; keeps working; ordered catch-up or `resync` | as expected | `realtime.adv.test.ts` | pass |
+| Finance: reports, reconciliation detects corrupted rollup, jobs restart exactly once | numbers agree with the ledger; 200 then 409 | as expected | `cancel-finance.adv.test.ts` | pass |

@@ -18,12 +18,12 @@ const t = <S extends string>(from: S, to: S, actors: readonly Actor[], note: str
 
 export const ORDER_TRANSITIONS: readonly Transition<OrderStatus>[] = [
   t('holding', 'awaiting_payment', ['buyer'], 'checkout started, payment created'),
-  t('awaiting_payment', 'holding', ['buyer'], 'buyer went back to change seats before the deadline'),
   t('holding', 'expired', ['buyer', 'system'], 'buyer abandoned or hold timer ran out'),
   t('awaiting_payment', 'expired', ['system'], 'hold timer ran out before payment'),
   t('awaiting_payment', 'paid', ['system'], 'succeeded payment confirmed (webhook or reconciliation)'),
   t('expired', 'paid', ['system'], 'late payment and the seats were still free'),
   t('expired', 'refunded', ['system'], 'late payment and the seats were taken: full automatic refund'),
+  t('awaiting_payment', 'refunded', ['system'], 'payment arrived but the event was cancelled meanwhile: full automatic refund'),
   t('paid', 'partially_refunded', ['buyer', 'finance', 'system'], 'some tickets refunded'),
   t('paid', 'refunded', ['buyer', 'finance', 'system'], 'all tickets refunded (also event cancellation)'),
   t('partially_refunded', 'partially_refunded', ['buyer', 'finance', 'system'], 'another subset refunded'),

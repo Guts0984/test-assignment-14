@@ -27,6 +27,8 @@ export const envSchema = z.object({
   LOGIN_THROTTLE_ACCOUNT_IP_MAX: int(5),
   LOGIN_THROTTLE_WINDOW_SECONDS: int(60),
   WS_MAX_MSGS_PER_SEC: int(20),
+  QUEUE_ACTIVATE_AT: int(500),
+  QUEUE_MAX_SELECTING: z.coerce.number().int().min(1).default(200),
   TEST_CLOCK_ENABLED: bool.default('false'),
   STUB_WEBHOOK_SECRET: secret,
   STUB_CHAOS: bool.default('false'),

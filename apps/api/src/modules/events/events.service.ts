@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
-import { PG_POOL } from '../../infra/tokens.js';
+import type { RealtimePublisher } from '@ticketing/platform';
+import { PG_POOL, RT_PUBLISHER } from '../../infra/tokens.js';
 import type { Result } from '../../common/result.js';
 import type { SearchParams } from './domain/search-query.js';
 import { getEventDetail, listOrganizerEvents, searchEvents } from './repo/queries.js';
@@ -9,7 +10,10 @@ import { createEvent, publishEvent, setBlocked, updateEvent, type EventDraftInpu
 
 @Injectable()
 export class EventsService {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    @Inject(RT_PUBLISHER) private readonly rt: RealtimePublisher,
+  ) {}
 
   search = (params: SearchParams) => searchEvents(this.pool, params);
   detail = (id: string, viewerId: string | null) => getEventDetail(this.pool, id, viewerId);
@@ -17,7 +21,11 @@ export class EventsService {
   create = (organizerId: string, venueId: string, input: EventDraftInput): Promise<Result<{ readonly id: string }>> => createEvent(this.pool, organizerId, venueId, input);
   update = (organizerId: string, id: string, patch: EventPatch) => updateEvent(this.pool, organizerId, id, patch);
   publish = (organizerId: string, id: string) => publishEvent(this.pool, organizerId, id);
-  block = (organizerId: string, id: string, seatIds: readonly number[], blocked: boolean) => setBlocked(this.pool, organizerId, id, seatIds, blocked);
+  async block(organizerId: string, id: string, seatIds: readonly number[], blocked: boolean) {
+    const r = await setBlocked(this.pool, organizerId, id, seatIds, blocked);
+    if (r.ok) this.rt.seatsChanged(id);
+    return r;
+  }
 
   /** Visible when published, or when the viewer is the organizer. */
   async layout(id: string, viewerId: string | null) {

@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
       include: ['src/**/*.int.test.ts', 'test/integration/**/*.int.test.ts', 'test/adversarial/**/*.adv.test.ts'],
       globalSetup: ['../../packages/testkit/src/global-setup.ts'],
       testTimeout: 60_000,
+      maxWorkers: 4, // each file boots servers with their own connection pools; stay below Postgres' 100 connections
       hookTimeout: 120_000,
     },
   };

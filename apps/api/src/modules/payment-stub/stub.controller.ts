@@ -61,7 +61,7 @@ export class PaymentStubController {
   @Post('v1/refunds')
   @HttpCode(200)
   async refund(@Body() body: CreateStubRefundDto, @Headers('idempotency-key') key: string | undefined) {
-    const { refund } = unwrap(await createRefund(this.pool, await this.cfg(), { paymentId: body.paymentId, amount: body.amount, key: keyOf(key), hash: requestHash(body) }));
+    const { refund } = unwrap(await createRefund(this.pool, await this.cfg(), { paymentId: body.paymentId, amount: body.amount, reference: body.reference ?? null, key: keyOf(key), hash: requestHash(body) }));
     return refund;
   }
 

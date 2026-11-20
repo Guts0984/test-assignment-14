@@ -17,7 +17,7 @@ export const createTestDb = async (): Promise<TestDb> => {
   await admin.query(`CREATE DATABASE ${name} TEMPLATE ${TEMPLATE_DB}`);
   await admin.end();
   const url = withDatabase(adminUrl, name);
-  const pool = new Pool({ connectionString: url, max: 40 });
+  const pool = new Pool({ connectionString: url, max: 12 });
   return {
     pool,
     url,

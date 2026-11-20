@@ -43,8 +43,10 @@ export const getSeatState = async (pool: Pool, eventId: string) => {
   const head = seqRow.rows[0];
   if (!head) return null;
   const [seats, general] = await Promise.all([
-    pool.query<{ seat_id: string; status: keyof typeof STATUS_CODE; hold_expires_at: Date | null }>(
-      `SELECT seat_id, status, hold_expires_at FROM event_seats WHERE event_id = $1 ORDER BY seat_id`,
+    pool.query<{ seat_id: string; status: keyof typeof STATUS_CODE; hold_expires_at: Date | null; offer_until: Date | null }>(
+      `SELECT es.seat_id, es.status, es.hold_expires_at, wo.expires_at AS offer_until FROM event_seats es
+       LEFT JOIN waitlist_offers wo ON wo.id = es.reserved_for_offer_id AND wo.status = 'active' AND wo.expires_at > app_now()
+       WHERE es.event_id = $1 ORDER BY es.seat_id`,
       [eventId],
     ),
     pool.query<{ zone_id: string; available: number }>(
@@ -59,10 +61,16 @@ export const getSeatState = async (pool: Pool, eventId: string) => {
   const status = seats.rows.map((r) => {
     if (r.status === 'held') {
       const until = r.hold_expires_at?.getTime() ?? 0;
-      if (until <= now) return STATUS_CODE.free;
-      heldUntil.push([Number(r.seat_id), until]);
+      if (until > now) {
+        heldUntil.push([Number(r.seat_id), until]);
+        return STATUS_CODE.held;
+      }
     }
-    return STATUS_CODE[r.status];
+    if ((r.status === 'free' || r.status === 'held') && r.offer_until) {
+      heldUntil.push([Number(r.seat_id), r.offer_until.getTime()]); // reserved for the person at the head of the waitlist
+      return STATUS_CODE.held;
+    }
+    return r.status === 'held' ? STATUS_CODE.free : STATUS_CODE[r.status];
   });
   return {
     eventId,

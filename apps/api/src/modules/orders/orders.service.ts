@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
-import { withTxRetry, type VirtualQueue } from '@ticketing/platform';
-import { PG_POOL, VIRTUAL_QUEUE } from '../../infra/tokens.js';
+import { withTxRetry, type RealtimePublisher, type VirtualQueue } from '@ticketing/platform';
+import { PG_POOL, RT_PUBLISHER, VIRTUAL_QUEUE } from '../../infra/tokens.js';
 import { appError, err, ok, type Result } from '../../common/result.js';
 import { requestHash, runIdempotent, type JsonValue } from './domain/idempotency.js';
 import { holdInTx, type HoldInput } from './repo/hold.js';
@@ -15,6 +15,7 @@ export class OrdersService {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(VIRTUAL_QUEUE) private readonly queue: VirtualQueue,
+    @Inject(RT_PUBLISHER) private readonly rt: RealtimePublisher,
   ) {}
 
   /** Idempotent hold. In queue mode only an admitted person may hold; the first hold starts their selection. */
@@ -32,7 +33,10 @@ export class OrdersService {
         return view ? ok(asJson(view)) : err(appError('INTERNAL', 'Order vanished'));
       },
     );
-    if (result.ok) await this.queue.startSelecting(input.eventId, input.userId).catch(() => undefined);
+    if (result.ok) {
+      await this.queue.startSelecting(input.eventId, input.userId).catch(() => undefined);
+      this.rt.seatsChanged(input.eventId);
+    }
     return result as Result<OrderView>;
   }
 
@@ -45,6 +49,7 @@ export class OrdersService {
     });
     if (!done.ok) return done;
     const view = await loadOrder(this.pool, orderId, userId);
+    if (view) this.rt.seatsChanged(view.eventId);
     return view ? ok(view) : err(appError('NOT_FOUND', 'Order not found'));
   }
 
@@ -56,6 +61,7 @@ export class OrdersService {
     const done = await withTxRetry(this.pool, (tx) => abandonOrder(tx, orderId, userId));
     if (!done.ok) return done;
     const view = await loadOrder(this.pool, orderId, userId);
+    if (view) this.rt.seatsChanged(view.eventId);
     return view ? ok(view) : err(appError('NOT_FOUND', 'Order not found'));
   }
 

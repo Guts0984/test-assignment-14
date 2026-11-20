@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { enqueue } from '@ticketing/platform';
 import { RULES } from '@ticketing/shared';
 import { appError, err, ok, type Result } from '../../../common/result.js';
 import { repriceOrder } from './reprice.js';
@@ -89,6 +90,7 @@ export const holdInTx = async (tx: PoolClient, input: HoldInput): Promise<Result
       [input.userId, input.eventId, RULES.holdTtlMs],
     )).rows[0]?.id;
     createdOrder = true;
+    await enqueue(tx, 'hold_expire', `hold_expire:${orderId}`, { orderId }, RULES.holdTtlMs);
   }
   if (!orderId) throw new Error('order was not created');
   const expiry = (await tx.query<{ hold_expires_at: Date }>(`SELECT hold_expires_at FROM orders WHERE id = $1`, [orderId])).rows[0]?.hold_expires_at ?? new Date();
@@ -97,7 +99,7 @@ export const holdInTx = async (tx: PoolClient, input: HoldInput): Promise<Result
   if (seatIds.length > 0) {
     await tx.query(`SELECT 1 FROM event_seats WHERE event_id = $1 AND seat_id = ANY($2::bigint[]) ORDER BY seat_id FOR UPDATE`, [input.eventId, seatIds]);
     const taken = await tx.query<{ seat_id: string; price: number; zone_id: string }>(
-      `UPDATE event_seats es SET status = 'held', hold_order_id = $3, hold_expires_at = $4
+      `UPDATE event_seats es SET status = 'held', hold_order_id = $3, hold_expires_at = $4, reserved_for_offer_id = NULL
        FROM price_tiers pt
        WHERE es.event_id = $1 AND es.seat_id = ANY($2::bigint[]) AND pt.id = es.tier_id
          AND (es.status = 'free' OR (es.status = 'held' AND es.hold_expires_at <= app_now()))
@@ -120,9 +122,9 @@ export const holdInTx = async (tx: PoolClient, input: HoldInput): Promise<Result
   const zoneIds: string[] = [];
   for (const g of [...input.general].sort((a, b) => (a.zoneId < b.zoneId ? -1 : 1))) {
     const zoneRow = async () => (await tx.query<{ capacity: number; sold: number; held: number; kind: string; tier_id: string | null; price: number | null }>(
-      `SELECT ez.capacity, ez.sold, ez.held, z.kind, ez.tier_id, pt.price FROM event_zones ez JOIN zones z ON z.id = ez.zone_id LEFT JOIN price_tiers pt ON pt.id = ez.tier_id
+      `SELECT ez.capacity, ez.sold, ez.held + (SELECT COUNT(*) FROM waitlist_offers w WHERE w.event_id = ez.event_id AND w.zone_id = ez.zone_id AND w.status = 'active' AND w.expires_at > app_now() AND w.user_id <> $3)::int AS held, z.kind, ez.tier_id, pt.price FROM event_zones ez JOIN zones z ON z.id = ez.zone_id LEFT JOIN price_tiers pt ON pt.id = ez.tier_id
        WHERE ez.event_id = $1 AND ez.zone_id = $2 FOR UPDATE OF ez`,
-      [input.eventId, g.zoneId],
+      [input.eventId, g.zoneId, input.userId],
     )).rows[0];
     let zone = await zoneRow();
     if (!zone || zone.kind !== 'general' || zone.tier_id === null || zone.price === null) return fail(appError('NOT_FOUND', 'General admission zone not found', { zoneId: g.zoneId }));
@@ -141,6 +143,12 @@ export const holdInTx = async (tx: PoolClient, input: HoldInput): Promise<Result
     zoneIds.push(g.zoneId);
   }
 
+  await tx.query(
+    `WITH used AS (UPDATE waitlist_offers SET status = 'used' WHERE event_id = $1 AND user_id = $2 AND status = 'active'
+                   AND ((seat_id IS NOT NULL AND seat_id = ANY($3::bigint[])) OR (seat_id IS NULL AND zone_id = ANY($4::uuid[]))) RETURNING entry_id)
+     UPDATE waitlist_entries SET status = 'fulfilled' WHERE id IN (SELECT entry_id FROM used)`,
+    [input.eventId, input.userId, seatIds, zoneIds],
+  );
   await repriceOrder(tx, orderId);
   await tx.query(
     `INSERT INTO order_history (order_id, actor_id, actor_role, type, data) VALUES ($1, $2, 'buyer', 'hold_added', $3::jsonb)`,

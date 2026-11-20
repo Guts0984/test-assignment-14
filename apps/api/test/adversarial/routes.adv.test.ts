@@ -18,7 +18,7 @@ interface Operation {
 }
 
 const PUBLIC = new Set([
-  'GET /api/health', 'POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/refresh', 'POST /api/auth/logout',
+  'GET /api/health', 'POST /api/webhooks/payments', 'POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/refresh', 'POST /api/auth/logout',
   'GET /api/events', 'GET /api/events/{id}', 'GET /api/events/{id}/layout', 'GET /api/events/{id}/seatmap',
 ]);
 
@@ -67,9 +67,14 @@ describe('every route is protected by default', () => {
   });
 
   it('role matrix: buyer-only, organizer-only and shared routes reject every other role with 403', async () => {
-    const organizerTags = new Set(['venues', 'organizer', 'promos']);
+    const roleOf = (path: string): 'buyer' | 'organizer' | 'scanner' | 'finance' => {
+      if (path.startsWith('/api/finance/')) return 'finance';
+      if (path.startsWith('/api/scanner/')) return 'scanner';
+      if (path.startsWith('/api/organizer/') || path.startsWith('/api/venues') || path.startsWith('/api/promos')) return 'organizer';
+      return 'buyer';
+    };
     for (const op of (await operations()).filter((o) => o.secured && o.tag !== 'auth')) {
-      const allowed = organizerTags.has(op.tag) ? 'organizer' : 'buyer';
+      const allowed = roleOf(op.path);
       for (const role of ['buyer', 'organizer', 'scanner', 'finance'] as const) {
         if (role === allowed) continue;
         const r = await http.request(op.method, concrete(op.path), { token: tokens[role].token, body: op.method === 'GET' || op.method === 'DELETE' ? undefined : {} });

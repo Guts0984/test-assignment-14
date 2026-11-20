@@ -14,18 +14,21 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
+    "@socket.io/redis-emitter": "^5.1.0",
     "@ticketing/shared": "workspace:*",
     "bullmq": "^5.0.0",
     "ioredis": "^5.0.0",
-    "pg": "^8.0.0"
+    "pg": "^8.0.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@ticketing/testkit": "workspace:*",
     "@types/pg": "^8.0.0",
+    "fast-check": "^4.10.3",
     "vite": "^7.3.8"
   }
 }

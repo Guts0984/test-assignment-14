@@ -6,5 +6,5 @@ export class CreateStubPaymentDto extends createZodDto(
 ) {}
 
 export class CreateStubRefundDto extends createZodDto(
-  z.object({ paymentId: z.string().regex(/^pay_[0-9a-f]{24}$/), amount: z.number().int().min(1).max(100_000_000) }).strict(),
+  z.object({ paymentId: z.string().regex(/^pay_[0-9a-f]{24}$/), amount: z.number().int().min(1).max(100_000_000), reference: z.string().min(1).max(64).optional() }).strict(),
 ) {}

@@ -21,11 +21,16 @@ export class StubGuard implements CanActivate {
     @Inject(STUB_LIMITER) private readonly limiter: Limiter,
     @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(ENV) private readonly env: Env,
-  ) {}
+  ) {
+    this.limiterKey = `stub:rps:${new URL(env.DATABASE_URL).pathname}`;
+  }
+
+  /** One budget per database (= per deployment): both api copies share it. */
+  private readonly limiterKey: string;
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const decision = await this.limiter.slidingWindow('stub:rps', this.env.STUB_RPS_LIMIT, 1_000);
+    const decision = await this.limiter.slidingWindow(this.limiterKey, this.env.STUB_RPS_LIMIT, 1_000);
     if (decision.degraded) throw new AppException(appError('PROVIDER_UNAVAILABLE', 'Provider is temporarily unavailable'));
     if (!decision.allowed) {
       throw new AppException(appError('RATE_LIMITED', 'Provider rate limit exceeded', { retryAfterSeconds: Math.max(1, Math.ceil(decision.retryAfterMs / 1_000)) }));

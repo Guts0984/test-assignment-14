@@ -6,4 +6,6 @@ export const REDIS = Symbol('REDIS');
 export const LIMITER = Symbol('LIMITER');
 export const VIRTUAL_QUEUE = Symbol('VIRTUAL_QUEUE');
 export const STUB_LIMITER = Symbol('STUB_LIMITER');
+export const PROVIDER = Symbol('PROVIDER');
+export const RT_PUBLISHER = Symbol('RT_PUBLISHER');
 export const CLIENT_IP = Symbol('CLIENT_IP');

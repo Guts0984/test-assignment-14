@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
       include: ['src/**/*.int.test.ts', 'test/**/*.int.test.ts'],
       globalSetup: ['../testkit/src/global-setup.ts'],
       testTimeout: 60_000,
+      maxWorkers: 4,
       hookTimeout: 120_000,
     },
   };

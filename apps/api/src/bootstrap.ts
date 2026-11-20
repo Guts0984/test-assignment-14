@@ -1,5 +1,6 @@
 import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { IncomingMessage } from 'node:http';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json } from 'express';
@@ -19,8 +20,11 @@ export const createApp = async (env: Env): Promise<INestApplication> => {
   app.use(requestContextMiddleware(env.API_INSTANCE_ID));
   app.enableCors({ origin: env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean), credentials: true, exposedHeaders: ['Retry-After', 'x-request-id', 'x-api-instance'] });
   app.use(jsonOnlyMiddleware);
-  app.use('/api/venues', json({ limit: env.VENUE_UPLOAD_LIMIT_BYTES }));
-  app.use(json({ limit: env.BODY_LIMIT_BYTES }));
+  const keepRaw = (req: IncomingMessage & { rawBody?: Buffer }, _res: unknown, buf: Buffer): void => {
+    req.rawBody = buf; // webhook signatures are computed over the exact bytes
+  };
+  app.use('/api/venues', json({ limit: env.VENUE_UPLOAD_LIMIT_BYTES, verify: keepRaw }));
+  app.use(json({ limit: env.BODY_LIMIT_BYTES, verify: keepRaw }));
   app.use(errorMiddleware);
   app.use(rejectNullBytes);
   app.setGlobalPrefix('api', { exclude: [{ path: 'stub/*splat', method: RequestMethod.ALL }] });

@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { withTx } from '@ticketing/platform';
+import { scheduleEventTasks } from '../../lifecycle/domain/lifecycle.js';
 import { canTransition, EVENT_TRANSITIONS } from '@ticketing/shared';
 import { appError, err, ok, type Result } from '../../../common/result.js';
 import { planPricing, type PricingInput, type PricingPlan } from '../domain/pricing-plan.js';
@@ -137,6 +138,7 @@ export const publishEvent = async (pool: Pool, organizerId: string, eventId: str
     const noZones = await tx.query(`SELECT 1 FROM event_zones WHERE event_id = $1 AND tier_id IS NULL AND NOT EXISTS (SELECT 1 FROM event_seats s WHERE s.event_id = $1 AND s.zone_id = event_zones.zone_id) LIMIT 1`, [eventId]);
     if (unpriced.rowCount === 1 || noZones.rowCount === 1) return err(appError('UNPROCESSABLE', 'Every seat and zone needs a price before publishing'));
     await tx.query(`UPDATE events SET status = 'on_sale' WHERE id = $1`, [eventId]);
+    await scheduleEventTasks(tx, eventId, ev.starts_at);
     return ok(true);
   });
 

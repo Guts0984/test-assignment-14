@@ -103,7 +103,7 @@ export const settlePayment = async (
 export const createRefund = async (
   pool: Pool,
   cfg: { readonly chaos: boolean; readonly maxDelayMs: number },
-  input: { readonly paymentId: string; readonly amount: number; readonly key: string; readonly hash: string },
+  input: { readonly paymentId: string; readonly amount: number; readonly reference: string | null; readonly key: string; readonly hash: string },
 ): Promise<Result<{ refund: StubRefund; replayed: boolean }>> =>
   withTxRetry(pool, async (tx) => {
     const payment = (await tx.query<{ amount: number; status: PaymentStatus; order_ref: string }>(`SELECT amount, status, order_ref FROM stub_payments WHERE id = $1 FOR UPDATE`, [input.paymentId])).rows[0];
@@ -117,8 +117,8 @@ export const createRefund = async (
     const refunded = Number((await tx.query<{ n: string }>(`SELECT COALESCE(SUM(amount), 0)::text AS n FROM stub_refunds WHERE payment_id = $1 AND status <> 'failed'`, [input.paymentId])).rows[0]?.n ?? 0);
     if (refunded + input.amount > payment.amount) return err(appError('UNPROCESSABLE', 'Refund exceeds the remaining payment amount', { remaining: payment.amount - refunded }));
     const id = newId('ref');
-    await tx.query(`INSERT INTO stub_refunds (id, payment_id, amount, status, idempotency_key, request_hash, seq) VALUES ($1, $2, $3, 'succeeded', $4, $5, 1)`, [id, input.paymentId, input.amount, input.key, input.hash]);
-    const data = { refundId: id, paymentId: input.paymentId, orderRef: payment.order_ref, amount: input.amount, status: 'succeeded', seq: 1 };
+    await tx.query(`INSERT INTO stub_refunds (id, payment_id, amount, status, idempotency_key, request_hash, seq, reference) VALUES ($1, $2, $3, 'succeeded', $4, $5, 1, $6)`, [id, input.paymentId, input.amount, input.key, input.hash, input.reference]);
+    const data = { refundId: id, paymentId: input.paymentId, orderRef: payment.order_ref, reference: input.reference, amount: input.amount, status: 'succeeded', seq: 1 };
     await scheduleWebhooks(tx, cfg.chaos, cfg.maxDelayMs, { eventId: newId('evt'), type: 'refund.succeeded', data }, null);
     return ok({ refund: { id, paymentId: input.paymentId, amount: input.amount, status: 'succeeded' as const }, replayed: false });
   });
