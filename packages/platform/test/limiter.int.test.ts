@@ -113,3 +113,20 @@ describe('Redis unavailable', () => {
     dead.disconnect();
   });
 });
+
+describe('slot scheduler', () => {
+  it('hands concurrent callers distinct, evenly spaced slots, so calls cannot arrive in a burst', async () => {
+    const waits = (await Promise.all(Array.from({ length: 30 }, () => limiter.reserveSlot(key('slots'), 10)))).map((r) => r.waitMs).sort((a, b) => a - b);
+    expect(new Set(waits).size).toBe(30);
+    for (let i = 1; i < waits.length; i += 1) expect((waits[i] ?? 0) - (waits[i - 1] ?? 0)).toBeGreaterThanOrEqual(99); // 10 per second = one slot per 100 ms
+    expect(waits[29]).toBeGreaterThanOrEqual(2_800);
+  });
+
+  it('flags a Redis outage instead of hanging', async () => {
+    const dead = new Redis('redis://127.0.0.1:6399', { maxRetriesPerRequest: null, retryStrategy: () => 1_000 });
+    dead.on('error', () => undefined);
+    const r = await createLimiter(dead, { onError: 'closed', timeoutMs: 150 }).reserveSlot('k', 10);
+    expect(r.degraded).toBe(true);
+    dead.disconnect();
+  });
+});

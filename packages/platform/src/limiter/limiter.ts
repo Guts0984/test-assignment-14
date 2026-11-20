@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Redis } from 'ioredis';
-import { FIXED_WINDOW_LUA, SLIDING_WINDOW_LUA } from './scripts.js';
+import { FIXED_WINDOW_LUA, SLIDING_WINDOW_LUA, SLOT_LUA } from './scripts.js';
 
 export interface LimitDecision {
   readonly allowed: boolean;
@@ -57,7 +57,20 @@ export const createLimiter = (redis: Redis, options: LimiterOptions) => {
     }
   };
 
+  /** Result of `reserveSlot`: how long to wait before sending, or `degraded` when Redis could not be asked. */
+  const reserve = async (key: string, ratePerSecond: number): Promise<{ readonly waitMs: number; readonly degraded: boolean }> => {
+    try {
+      const raw: unknown = await withTimeout(redis.eval(SLOT_LUA, 1, key, Math.ceil(1_000 / ratePerSecond)), options.timeoutMs);
+      if (!Array.isArray(raw)) throw new Error('unexpected limiter reply');
+      return { waitMs: Math.max(0, Number(raw[0])), degraded: false };
+    } catch {
+      return { waitMs: 0, degraded: true };
+    }
+  };
+
   return Object.freeze({
+    /** Evenly spaced send slots shared by all callers: `waitMs` is how long this caller must wait before sending. */
+    reserveSlot: reserve,
     /** At most `limit` hits in ANY window of `windowMs` (exact). */
     slidingWindow: (key: string, limit: number, windowMs: number): Promise<LimitDecision> =>
       run(SLIDING_WINDOW_LUA, key, [limit, windowMs, randomUUID()]),

@@ -17,6 +17,8 @@ export type { RehydrateDeps, RehydratorOptions } from './tasks/rehydrate.js';
 export { DEFAULT_QUEUE_CONFIG, createVirtualQueue } from './queue/virtual-queue.js';
 export type { QueueCacheHooks, QueueConfig, QueueStatus, QueueView, VirtualQueue } from './queue/virtual-queue.js';
 export { createRedisQueueCache } from './queue/redis-cache.js';
+export { cancelEventInTx } from './lifecycle/cancel.js';
+export type { CancelOutcome } from './lifecycle/cancel.js';
 export { createProviderClient } from './payments/provider.js';
 export type { ProviderClient, ProviderFailure, ProviderPayment, ProviderRefund, ProviderResult } from './payments/provider.js';
 export { signTicketCode, parseTicketCode } from './tickets/qr.js';

@@ -10,6 +10,18 @@
     "test:int": "echo \"mailstub tests are self-contained (no external infrastructure)\"",
     "start": "node dist/main.js"
   },
-  "dependencies": { "mailparser": "^3.7.0", "smtp-server": "^3.13.0", "zod": "^3.25.0" },
-  "devDependencies": { "@types/mailparser": "^3.4.0", "@types/smtp-server": "^3.5.0", "nodemailer": "^7.0.0", "@types/nodemailer": "^6.4.0" }
+  "dependencies": {
+    "mailparser": "^3.7.0",
+    "smtp-server": "^3.13.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.0",
+    "@types/smtp-server": "^3.5.0",
+    "nodemailer": "^7.0.0",
+    "@types/nodemailer": "^6.4.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
 }

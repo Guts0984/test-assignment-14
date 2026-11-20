@@ -37,7 +37,10 @@ export class RealtimeGateway implements OnGatewayConnection {
   ) {}
 
   afterInit(server: Server): void {
-    server.adapter(createAdapter(this.redis.duplicate(), this.redis.duplicate()));
+    const pub = this.redis.duplicate();
+    const sub = this.redis.duplicate();
+    for (const c of [pub, sub]) c.on('error', (error: Error) => this.logger.warn(`redis adapter: ${error.message}`));
+    server.adapter(createAdapter(pub, sub));
     server.use((socket, next) => {
       void this.authenticate(socket)
         .then((user) => {
@@ -76,6 +79,15 @@ export class RealtimeGateway implements OnGatewayConnection {
 
   @SubscribeMessage('subscribe')
   async subscribe(@ConnectedSocket() socket: Socket, @MessageBody() body: unknown) {
+    try {
+      return await this.doSubscribe(socket, body);
+    } catch (error) {
+      this.logger.warn(`subscribe failed: ${error instanceof Error ? error.message : String(error)}`);
+      return { ok: false, code: 'INTERNAL' };
+    }
+  }
+
+  private async doSubscribe(socket: Socket, body: unknown) {
     const user = socket.data['user'] as SocketUser | undefined;
     const parsed = subscribeSchema.safeParse(body);
     if (!user || !parsed.success) return { ok: false, code: 'VALIDATION_FAILED' };

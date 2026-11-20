@@ -29,7 +29,9 @@ export const loadChanges = async (pool: Pool, eventId: string, afterSeq: number,
  * avoids re-sending, and losing it merely repeats recent events (clients ignore sequence numbers they already have).
  */
 export const createRealtimePublisher = (deps: { readonly redis: Redis; readonly pool: Pool; readonly debounceMs?: number }) => {
-  const emitter = new Emitter(deps.redis);
+  // The emitter fires publishes without awaiting them; a closing connection would turn them into unhandled rejections.
+  const quiet = { publish: (channel: string, message: string | Buffer): Promise<number> => deps.redis.publish(channel, message).catch(() => 0) };
+  const emitter = new Emitter(quiet as unknown as ConstructorParameters<typeof Emitter>[0]);
   const pending = new Set<string>();
   const cursorKey = (eventId: string): string => `rt:cursor:${eventId}`;
 

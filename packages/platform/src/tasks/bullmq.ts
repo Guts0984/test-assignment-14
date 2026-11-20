@@ -24,6 +24,7 @@ export interface TaskQueueOptions {
  */
 export const createTaskQueue = (options: TaskQueueOptions) => {
   const queue = new Queue<JobData>(TASK_QUEUE_NAME, { connection: options.connection, prefix: options.prefix });
+  queue.on('error', () => undefined);
 
   const enqueue = async (dedupeKey: string, runAt: Date, delayMs: number): Promise<void> => {
     const id = jobIdFor(dedupeKey, runAt);
@@ -48,6 +49,7 @@ export interface TaskWorkerOptions {
   /** How long a job may be silent before another worker takes it over (kill -9 recovery). */
   readonly lockDurationMs?: number;
   readonly stalledIntervalMs?: number;
+  readonly onError?: (error: Error) => void;
 }
 
 /** Consumer side: for each job message, ask the runner to claim and execute the task. */
@@ -60,5 +62,9 @@ export const createTaskWorker = (options: TaskWorkerOptions) => {
     stalledInterval: options.stalledIntervalMs ?? 30_000,
     maxStalledCount: 1_000,
   });
+  // Redis hiccups (restart, FLUSHALL while a job is active) surface here; the durable task in Postgres is the truth
+  // and its lease/rehydrator bring the work back, so these must never crash the process.
+  worker.on('error', (error) => options.onError?.(error));
+  worker.on('failed', (_job, error) => options.onError?.(error));
   return Object.freeze({ worker, close: () => worker.close() });
 };

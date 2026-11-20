@@ -7,7 +7,32 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:int": "echo \"no integration tests yet\""
+    "test:int": "vitest run --config vitest.int.config.ts",
+    "start": "node dist/main.js"
   },
-  "dependencies": { "zod": "^3.25.0" }
+  "dependencies": {
+    "@nestjs/common": "^11.2.11",
+    "@nestjs/core": "^11.2.11",
+    "@ticketing/platform": "workspace:*",
+    "@ticketing/shared": "workspace:*",
+    "nodemailer": "^7.0.13",
+    "pdfkit": "^0.17.2",
+    "pg": "^8.23.1",
+    "qrcode": "^1.5.4",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.16.22",
+    "@ticketing/mailstub": "workspace:*",
+    "@ticketing/testkit": "workspace:*",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pdfkit": "^0.17.7",
+    "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.6",
+    "fast-check": "^4.10.3",
+    "unplugin-swc": "^2.0.0",
+    "vite": "^7.3.8"
+  }
 }

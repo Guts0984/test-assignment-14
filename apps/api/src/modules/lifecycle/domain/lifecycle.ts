@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { enqueue, lockEvent, withTxRetry } from '@ticketing/platform';
+import { cancelEventInTx, enqueue, withTxRetry } from '@ticketing/platform';
 import { RULES, canTransition, EVENT_TRANSITIONS, type EventStatus } from '@ticketing/shared';
 import { appError, err, ok, type Result } from '../../../common/result.js';
 
@@ -59,49 +59,13 @@ export const cancellationProgress = async (pool: Pool, organizerId: string, even
   return { status: ev.status, total: r?.total ?? 0, requested: r?.requested ?? 0, pending: r?.pending ?? 0, succeeded: r?.succeeded ?? 0, failed: r?.failed ?? 0, amountTotal: Number(r?.amount_total ?? 0), amountRefunded: Number(r?.amount_refunded ?? 0) };
 };
 
-/**
- * Cancels an event. Everything that matters happens in ONE transaction under the exclusive event lock: sales,
- * refunds and transfers stop at once (they take the same lock in shared mode), unpaid holds are released, and
- * a refund row plus a durable task is created for every paid order in a single set-based statement. The refunds
- * are then executed by the workers; the same call a second time finds the event cancelled and changes nothing.
- */
+/** Cancels an event for its organizer: sales stop at once, every order is refunded in the background (see `cancelEventInTx`). */
 export const cancelEvent = (pool: Pool, organizerId: string, eventId: string): Promise<Result<{ readonly alreadyCancelled: boolean }>> =>
   withTxRetry(pool, async (tx) => {
-    const peek = (await tx.query<{ id: string }>(`SELECT id FROM events WHERE id = $1 AND organizer_id = $2`, [eventId, organizerId])).rows[0];
-    if (!peek) return err(appError('NOT_FOUND', 'Event not found'));
-    await lockEvent(tx, eventId, false);
-    const ev = await ownEvent(tx, organizerId, eventId);
-    if (!ev) return err(appError('NOT_FOUND', 'Event not found'));
-    if (ev.status === 'cancelled') return ok({ alreadyCancelled: true });
-    if (!canTransition(EVENT_TRANSITIONS, ev.status, 'cancelled', 'organizer')) return err(appError('CONFLICT', `An event in status "${ev.status}" cannot be cancelled`));
-    await tx.query(`UPDATE events SET status = 'cancelled', cancelled_at = app_now() WHERE id = $1`, [eventId]);
-    await tx.query(`SELECT release_order(o.id, true) FROM orders o WHERE o.event_id = $1 AND o.status IN ('holding', 'awaiting_payment')`, [eventId]);
-    await tx.query(`UPDATE waitlist_offers SET status = 'cancelled' WHERE event_id = $1 AND status = 'active'`, [eventId]);
-    await tx.query(`SET LOCAL app.trusted_bulk = 'on'`);
-    await tx.query(
-      `WITH remaining AS (
-         SELECT i.id AS item_id, i.order_id, (i.price - i.discount) AS price, i.fee FROM order_items i JOIN orders o ON o.id = i.order_id
-         WHERE o.event_id = $1 AND o.status IN ('paid', 'partially_refunded') AND NOT EXISTS (SELECT 1 FROM refund_items r WHERE r.order_item_id = i.id AND r.active)
-       ), per_order AS (SELECT order_id, SUM(price)::int AS price, SUM(fee)::int AS fee FROM remaining GROUP BY order_id),
-       new_refunds AS (
-         INSERT INTO refunds (order_id, kind, price_amount, fee_amount, amount, reason) SELECT order_id, 'event_cancelled', price, fee, price + fee, 'Event cancelled' FROM per_order RETURNING id, order_id
-       ), items AS (
-         INSERT INTO refund_items (refund_id, order_item_id, price_amount, fee_amount) SELECT n.id, r.item_id, r.price, r.fee FROM remaining r JOIN new_refunds n ON n.order_id = r.order_id RETURNING 1
-       ), refund_tasks AS (
-         INSERT INTO tasks (kind, dedupe_key, payload) SELECT 'refund_execute', 'refund:' || id, jsonb_build_object('refundId', id) FROM new_refunds ON CONFLICT (dedupe_key) DO NOTHING RETURNING 1
-       ), mail_tasks AS (
-         INSERT INTO tasks (kind, dedupe_key, payload) SELECT 'email', 'email:cancel:' || order_id, jsonb_build_object('template', 'event_cancelled', 'orderId', order_id, 'refundId', id) FROM new_refunds ON CONFLICT (dedupe_key) DO NOTHING RETURNING 1
-       ), tickets_done AS (UPDATE tickets SET status = 'refunded' WHERE order_item_id IN (SELECT item_id FROM remaining) RETURNING 1)
-       UPDATE orders SET status = 'refunded' WHERE id IN (SELECT order_id FROM per_order)`,
-      [eventId],
-    );
-    const over = await tx.query(
-      `SELECT 1 FROM refund_items ri JOIN refunds r ON r.id = ri.refund_id JOIN orders o ON o.id = r.order_id WHERE o.event_id = $1 AND ri.active GROUP BY o.id, o.total HAVING SUM(ri.price_amount + ri.fee_amount) > o.total LIMIT 1`,
-      [eventId],
-    );
-    if (over.rowCount === 1) throw new Error('mass cancellation would refund more than was paid');
-    await enqueue(tx, 'mass_cancel_notice', `mass_cancel:${eventId}`, { eventId });
-    return ok({ alreadyCancelled: false });
+    const out = await cancelEventInTx(tx, eventId, organizerId);
+    if (out.kind === 'not_found') return err(appError('NOT_FOUND', 'Event not found'));
+    if (out.kind === 'not_allowed') return err(appError('CONFLICT', `An event in status "${out.status}" cannot be cancelled`));
+    return ok({ alreadyCancelled: out.kind === 'already_cancelled' });
   });
 
 export const assignStaff = (pool: Pool, organizerId: string, eventId: string, email: string): Promise<Result<true>> =>
