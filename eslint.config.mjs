@@ -41,7 +41,7 @@ export default tseslint.config(
   },
   {
     // env.ts is the only reader of process.env
-    files: ['apps/*/src/config/env.ts'],
+    files: ['apps/*/src/config/env.ts', 'apps/api/src/config/seed-env.ts'],
     rules: { 'no-restricted-properties': 'off' },
   },
   {

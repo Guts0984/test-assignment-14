@@ -252,6 +252,7 @@ Assignment > CLAUDE.md > prompt. Only real conflicts are listed.
 | A-41 | Venue JSON schema | `{ name, city, zones:[{id,name,kind:'seated'|'general', capacity?, rows:[{label, seats:[{number,x,y}]}]}] }`; limits: ≤12 000 seats, ≤200 zones, body ≤ 2 MB (zod + body limit). Prices assigned per zone on the event (price set can be per seat group: organizer selects seats on the map ⇒ `price_tiers` + `seat→tier`). Blocked seats = `event_seats.status='blocked'`. |
 | A-43 | Transfer recipient | The recipient must already have an account (looked up by email); ownership moves immediately and `qr_version` is bumped. Unknown email → `TRANSFER_NOT_ALLOWED`. |
 | A-44 | Scope shift | QR signing lives in `apps/api` (node crypto, C7) rather than `packages/shared`, which stays framework/IO free; zod request schemas other than the venue layout are added with the endpoints (C5/C7). Ledger postings are SQL functions (`post_payment`, `post_refund`, `post_payout`, idempotent per ref) shared by api and worker; amounts come from rows computed in TS with `packages/shared` pricing. Tests read the DB through `pg`; the worker uses `pg` too (no Prisma client in the worker). |
+| A-45 | Seed provider payments | Seeded historical payments carry `provider_payment_id = 'seed_<orderId>'` and have no stub rows; reconciliation against the stub ignores the `seed_` prefix. Seeded orders have no `order_history` rows. Seed uses `session_replication_role = replica` for the bulk load (FK triggers skipped, verified by `seed.int` for every FK) and re-checks the ledger in SQL before commit. Seed users share one argon2id hash of `SEED_USER_PASSWORD`. Measured: full seed 1 min 54 s (50 000 users, 30 halls, 2 000 events, 1 000 000 tickets, 500 484 orders, 2.6 M event seats, 1.5 M ledger entries; DB 2.5 GB). |
 | A-42 | Web theme/other | Tailwind, light theme only, no UI kit dependency beyond small `shared/ui`. |
 
 ---
@@ -512,7 +513,7 @@ Never push. Conventional Commits; footer per attribution rule. Before every comm
 
 - [x] C1 scaffold + CI
 - [x] C2 db schema, ledger, constraints, shared rules
-- [ ] C3 seed + indexes
+- [x] C3 seed + indexes
 - [ ] C4 redis infra
 - [ ] C5 api core
 - [ ] C6 payment stub + mail stub
