@@ -4,7 +4,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import type { Pool } from 'pg';
 import type { Server, Socket } from 'socket.io';
 import { z } from 'zod';
-import { adminRoom, eventRoom, loadChanges, userRoom, type Redis } from '@ticketing/platform';
+import { adminRoom, eventRoom, loadChanges, sessionRoom, userRoom, type Redis } from '@ticketing/platform';
 import type { Role } from '@ticketing/shared';
 import type { Env } from '../../config/env.schema.js';
 import { ENV, PG_POOL, REDIS } from '../../infra/tokens.js';
@@ -14,6 +14,7 @@ import { verifyAccessToken } from '../auth/domain/tokens.js';
 interface SocketUser {
   readonly id: string;
   readonly role: Role;
+  readonly sid: string;
 }
 
 const subscribeSchema = z.object({ eventId: z.string().uuid(), lastSeq: z.number().int().min(0).optional(), admin: z.boolean().optional() }).strict();
@@ -57,13 +58,14 @@ export class RealtimeGateway implements OnGatewayConnection {
     if (typeof token !== 'string' || token.length === 0 || token.length > 4_000) return null;
     const claims = await verifyAccessToken(this.env.JWT_ACCESS_SECRET, token);
     if (!claims || !(await isSessionActive(this.pool, claims.sid))) return null;
-    return { id: claims.sub, role: claims.role };
+    return { id: claims.sub, role: claims.role, sid: claims.sid };
   }
 
   handleConnection(socket: Socket): void {
     const user = socket.data['user'] as SocketUser | undefined;
     if (!user) return void socket.disconnect(true);
     void socket.join(userRoom(user.id));
+    void socket.join(sessionRoom(user.sid)); // lets a logout close this socket from any api copy
     const stamps: number[] = [];
     socket.use((_packet, next) => {
       const now = Date.now();

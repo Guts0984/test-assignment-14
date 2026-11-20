@@ -41,7 +41,7 @@ export const EventBooking = ({ event }: { readonly event: EventDetailDto }) => {
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const key = useRef(crypto.randomUUID());
 
-  const active: OrderDto | undefined = orders.data?.items.find((o) => o.eventId === event.id && o.status === 'holding' && (o.holdExpiresAt === null || Date.parse(o.holdExpiresAt) > Date.now() - 1_000));
+  const active: OrderDto | undefined = orders.data?.items.find((o) => o.eventId === event.id && o.status === 'holding' && (o.holdExpiresAt === null || Date.parse(o.holdExpiresAt) > live.serverNow() - 1_000));
   const awaiting = orders.data?.items.find((o) => o.eventId === event.id && o.status === 'awaiting_payment');
   const inOrder = active?.items.length ?? 0;
   const generalTotal = Object.values(qty).reduce((n, v) => n + v, 0);
@@ -98,7 +98,7 @@ export const EventBooking = ({ event }: { readonly event: EventDetailDto }) => {
 
   if (live.loading || !live.layout || !index || !live.state) return <Spinner label={t('loading')} />;
   const soldOut = event.status === 'sold_out' || !event.hasSeats;
-  const salesNotStarted = Date.parse(event.salesStartAt) > Date.now();
+  const salesNotStarted = Date.parse(event.salesStartAt) > live.serverNow();
   const generalZones = event.zones.filter((z) => z.kind === 'general');
   const picked = selected.size + generalTotal;
   const needQueue = event.queueActive && !admitted;
@@ -113,7 +113,7 @@ export const EventBooking = ({ event }: { readonly event: EventDetailDto }) => {
       </div>
       <aside className="flex flex-col gap-3" aria-label={t('panel')}>
         {salesNotStarted ? <Alert tone="info">{t('salesNotStarted')}</Alert> : null}
-        {soldOut ? <WaitlistPanel eventId={event.id} /> : <QueuePanel eventId={event.id} queueActive={event.queueActive} onAdmitted={setAdmitted} />}
+        {soldOut ? <WaitlistPanel eventId={event.id} /> : <QueuePanel eventId={event.id} queueActive={event.queueActive} onAdmitted={setAdmitted} autoJoin={!salesNotStarted} />}
         {generalZones.length > 0 ? (
           <Card className="flex flex-col gap-2">
             <h2 className="font-semibold">{t('floor')}</h2>

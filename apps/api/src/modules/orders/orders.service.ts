@@ -20,6 +20,9 @@ export class OrdersService {
 
   /** Idempotent hold. In queue mode only an admitted person may hold; the first hold starts their selection. */
   async hold(input: HoldInput, key: string): Promise<Result<OrderView>> {
+    // Everyone who tries to choose seats counts as a claimant of the event (idempotent), so a crowd that skips the join button
+    // still switches the queue on and is capped at the selection capacity.
+    await this.queue.join(input.eventId, input.userId).catch(() => undefined);
     if (await this.queue.mustWait(input.eventId, input.userId)) {
       return err(appError('QUEUE_REQUIRED', 'Join the virtual queue and wait for your turn to choose seats'));
     }

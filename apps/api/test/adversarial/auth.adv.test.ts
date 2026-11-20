@@ -17,7 +17,7 @@ const b64 = (o: unknown): string => Buffer.from(JSON.stringify(o)).toString('bas
 beforeAll(async () => {
   tdb = await createTestDb();
   api = await bootApi(tdb);
-  tight = await bootApi(tdb, { LOGIN_THROTTLE_IP_MAX: '30', LOGIN_THROTTLE_ACCOUNT_IP_MAX: '5', LOGIN_THROTTLE_WINDOW_SECONDS: '60' });
+  tight = await bootApi(tdb, { REGISTER_THROTTLE_IP_MAX: '5', LOGIN_THROTTLE_IP_MAX: '30', LOGIN_THROTTLE_ACCOUNT_IP_MAX: '5', LOGIN_THROTTLE_WINDOW_SECONDS: '60' });
   http = client({ baseUrl: api.baseUrl, sourceIp: '127.0.0.80' });
 });
 afterAll(async () => {
@@ -59,6 +59,16 @@ describe('credentials', () => {
     const replies = await Promise.all(Array.from({ length: 20 }, () => http.post('/api/auth/register', { email, password: PASSWORD, displayName: 'R' })));
     expect(statusCounts(replies)).toEqual({ 201: 1, 409: 19 });
     expect((await tdb.pool.query(`SELECT COUNT(*)::int AS n FROM users WHERE email = $1`, [email])).rows[0]).toMatchObject({ n: 1 });
+  });
+
+  it('one address cannot mass-produce accounts; others can still register', async () => {
+    const attacker = client({ baseUrl: tight.baseUrl, sourceIp: ip(92) });
+    const innocent = client({ baseUrl: tight.baseUrl, sourceIp: ip(93) });
+    const create = (c: Client) => c.post('/api/auth/register', { email: `bulk-${crypto.randomUUID()}@example.test`, password: PASSWORD, displayName: 'B' });
+    const replies = await Promise.all(Array.from({ length: 40 }, () => create(attacker)));
+    expect(statusCounts(replies)).toEqual({ 201: 5, 429: 35 });
+    expect(Number(replies.find((r) => r.status === 429)?.headers['retry-after'])).toBeGreaterThan(0);
+    expect((await create(innocent)).status).toBe(201);
   });
 
   it('mass assignment: role, id and unknown fields are refused', async () => {
@@ -150,6 +160,24 @@ describe('refresh tokens', () => {
     const replies = await Promise.all(Array.from({ length: 10 }, () => http.post('/api/auth/refresh', { refreshToken: tokens.refreshToken })));
     expect(replies.filter((r) => r.status === 200)).toHaveLength(1);
     expect(replies.filter((r) => r.status === 401)).toHaveLength(9);
+  });
+
+  it('two tabs refreshing at the same moment both stay signed in; the same token much later is still treated as theft', async () => {
+    const lenient = await bootApi(tdb, { REFRESH_REUSE_GRACE_SECONDS: '10' });
+    try {
+      const c = client({ baseUrl: lenient.baseUrl, sourceIp: ip(91) });
+      const { tokens } = await register(c);
+      const [a, b] = await Promise.all([1, 2].map(() => c.post('/api/auth/refresh', { refreshToken: tokens.refreshToken })));
+      expect([a?.status, b?.status]).toEqual([200, 200]);
+      const pair = a?.json as { accessToken: string };
+      expect((await c.get('/api/auth/me', { token: pair.accessToken })).status).toBe(200); // the session was not revoked
+      await tdb.pool.query(`UPDATE refresh_tokens SET used_at = now() - interval '1 minute' WHERE used_at IS NOT NULL`);
+      const late = await c.post('/api/auth/refresh', { refreshToken: tokens.refreshToken });
+      expect(late.json).toMatchObject({ error: { code: 'TOKEN_REUSE_DETECTED' } });
+      expect((await c.get('/api/auth/me', { token: pair.accessToken })).status).toBe(401);
+    } finally {
+      await lenient.close();
+    }
   });
 
   it('garbage refresh tokens are refused without leaking anything', async () => {

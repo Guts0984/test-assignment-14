@@ -3,7 +3,10 @@ import { Redis } from 'ioredis';
 
 export const hostReachableRedisUrl = (url: string): string => {
   const parsed = new URL(url);
-  if (parsed.hostname === 'redis') parsed.hostname = 'localhost';
+  if (parsed.hostname === 'redis') {
+    parsed.hostname = 'localhost';
+    parsed.port = process.env['REDIS_PUBLISH_PORT'] ?? '6379';
+  }
   return parsed.toString();
 };
 

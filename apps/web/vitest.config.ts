@@ -5,5 +5,5 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: { '@': resolve(__dirname, 'src') } },
-  test: { include: ['src/**/*.test.{ts,tsx}'], environment: 'jsdom', setupFiles: ['./vitest.setup.ts'] },
+  test: { include: ['src/**/*.test.{ts,tsx}'], environment: 'jsdom', setupFiles: ['./vitest.setup.ts'], testTimeout: 60_000 }, // the FSD fixtures run ESLint several times
 });

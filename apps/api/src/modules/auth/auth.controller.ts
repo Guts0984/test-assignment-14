@@ -32,8 +32,8 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOkResponse({ type: TokenPairDto })
-  async register(@Body() body: RegisterDto, @Res({ passthrough: true }) res: Response): Promise<TokenPair> {
-    return withCookie(res, unwrap(await this.auth.register(body)));
+  async register(@Body() body: RegisterDto, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<TokenPair> {
+    return withCookie(res, unwrap(await this.auth.register(this.clientIp(req), body)));
   }
 
   @Public()

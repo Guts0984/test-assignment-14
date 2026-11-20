@@ -1,8 +1,9 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useState, type FormEvent } from 'react';
 import { toProblem } from '@/shared/api/problem';
+import { formatTime, type AppLocale } from '@/shared/lib/format';
 import { Alert, Button, Card, TextField } from '@/shared/ui';
 import { useScan, useScanStats } from '@/entities/scan';
 import { CameraReader } from './camera-reader';
@@ -10,6 +11,7 @@ import { CameraReader } from './camera-reader';
 /** Entrance check: scan with the camera or type the code; a big green "pass" or the reason for the refusal, and live counters. */
 export const ScanConsole = ({ eventId }: { readonly eventId: string }) => {
   const t = useTranslations('scanner');
+  const locale = useLocale() as AppLocale;
   const scan = useScan(eventId);
   const stats = useScanStats(eventId);
   const [code, setCode] = useState('');
@@ -42,7 +44,7 @@ export const ScanConsole = ({ eventId }: { readonly eventId: string }) => {
               <p>{r.result === 'allow' ? t('pass') : t('deny')}</p>
               <p className="mt-2 text-base font-medium">
                 {r.reason === 'already_entered' && r.enteredAt
-                  ? t('reason.already_entered', { time: r.enteredAt.slice(11, 16), gate: r.gate ?? '?' })
+                  ? t('reason.already_entered', { time: formatTime(r.enteredAt, locale), gate: r.gate ?? '?' })
                   : t(`reason.${r.reason}`)}
               </p>
               {r.ticket ? <p className="mt-1 text-base">{r.ticket.row ? t('seatInfo', { zone: r.ticket.zoneName, row: r.ticket.row, seat: r.ticket.seat ?? 0 }) : r.ticket.zoneName}</p> : null}

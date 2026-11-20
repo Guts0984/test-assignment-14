@@ -74,7 +74,7 @@ export const refresh = async (pool: Pool, cfg: AuthConfig, token: string): Promi
   return ok(await mintPair(pool, cfg, user, outcome.familyId));
 };
 
-export const logout = async (pool: Pool, cfg: AuthConfig, token: string): Promise<void> => revokeByToken(pool, cfg, token);
+export const logout = async (pool: Pool, cfg: AuthConfig, token: string): Promise<string | null> => revokeByToken(pool, cfg, token);
 
 export const findUser = async (pool: Pool, id: string): Promise<UserView | null> => {
   const res = await pool.query<UserRow>(`SELECT * FROM users WHERE id = $1`, [id]);

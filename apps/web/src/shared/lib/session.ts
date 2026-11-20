@@ -1,3 +1,4 @@
+import { closeSocket } from './socket';
 import { useSyncExternalStore } from 'react';
 
 export type Role = 'buyer' | 'organizer' | 'scanner' | 'finance';
@@ -24,7 +25,10 @@ const publish = (next: Session): void => {
 
 export const getSession = (): Session => session;
 export const setSession = (accessToken: string, user: SessionUser): void => publish({ status: 'authenticated', accessToken, user });
-export const clearSession = (): void => publish({ status: 'anonymous' });
+export const clearSession = (): void => {
+  closeSocket(); // a signed-out tab must not keep a live, authenticated socket
+  publish({ status: 'anonymous' });
+};
 
 export const useSession = (): Session =>
   useSyncExternalStore(

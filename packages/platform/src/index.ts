@@ -35,5 +35,5 @@ export { processProviderEvent, providerEventSchema } from './payments/webhook.js
 export type { ProviderEvent, WebhookOutcome } from './payments/webhook.js';
 export { reconcileProvider } from './payments/reconcile.js';
 export type { Finding, ReconcileOptions } from './payments/reconcile.js';
-export { adminRoom, createRealtimePublisher, eventRoom, loadChanges, userRoom } from './realtime/publisher.js';
+export { adminRoom, createRealtimePublisher, eventRoom, loadChanges, sessionRoom, userRoom } from './realtime/publisher.js';
 export type { RealtimePublisher, SeatChange } from './realtime/publisher.js';

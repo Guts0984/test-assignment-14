@@ -48,6 +48,23 @@ afterAll(async () => {
 const hold = (c: Client, user: TestUser, seatIds: number[], eventId = ev.eventId) =>
   c.post(`/api/events/${eventId}/holds`, { seatIds }, { token: user.token, headers: { 'idempotency-key': idem() } });
 
+describe('logging out closes open sockets', () => {
+  it('a socket connected to the other api copy is disconnected when the session is logged out, and others stay connected', async () => {
+    const make = async () => {
+      const r = await ca.post('/api/auth/register', { email: `ws-${crypto.randomUUID()}@example.test`, password: 'Correct-horse-battery-1', displayName: 'WS' });
+      expect(r.status).toBe(201);
+      return r.json as { accessToken: string; refreshToken: string };
+    };
+    const [leaving, staying] = [await make(), await make()];
+    const onB = await connect(b, leaving.accessToken);
+    const other = await connect(b, staying.accessToken);
+    const closed = new Promise<string>((resolve) => onB.on('disconnect', (reason) => resolve(reason)));
+    expect((await ca.post('/api/auth/logout', { refreshToken: leaving.refreshToken })).status).toBe(204);
+    expect(await closed).toBe('io server disconnect');
+    expect(other.connected).toBe(true);
+  });
+});
+
 describe('live seat updates across both api copies (acceptance 3)', () => {
   it('a seat held through copy A reaches a viewer connected to copy B in under a second, and release/sale follow', async () => {
     const [watcher, buyer] = await createUsers(tdb.pool, a.env, 2);

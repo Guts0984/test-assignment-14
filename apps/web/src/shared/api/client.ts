@@ -10,9 +10,13 @@ interface TokenPair {
 
 let refreshing: Promise<boolean> | null = null;
 
+/** The refresh cookie is shared by every tab, so the refresh is serialised across tabs too (Web Locks); the second tab then sends the already rotated cookie. */
+const withRefreshLock = async <T>(job: () => Promise<T>): Promise<T> =>
+  typeof navigator !== 'undefined' && 'locks' in navigator ? await navigator.locks.request('ticketing-refresh-session', job) : job();
+
 /** One refresh at a time, whatever number of requests failed with 401 meanwhile. */
 export const refreshSession = (): Promise<boolean> => {
-  refreshing ??= (async () => {
+  refreshing ??= withRefreshLock(async () => {
     try {
       const res = await fetch(`${publicEnv.NEXT_PUBLIC_API_BASE}/api/auth/refresh`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: '{}' });
       if (!res.ok) {
@@ -27,7 +31,7 @@ export const refreshSession = (): Promise<boolean> => {
     } finally {
       refreshing = null;
     }
-  })();
+  });
   return refreshing;
 };
 

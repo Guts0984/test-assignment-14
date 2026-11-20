@@ -14,6 +14,7 @@ export interface SeatChange {
 export const eventRoom = (eventId: string): string => `event:${eventId}`;
 export const adminRoom = (eventId: string): string => `admin:${eventId}`;
 export const userRoom = (userId: string): string => `user:${userId}`;
+export const sessionRoom = (sessionId: string): string => `session:${sessionId}`;
 
 export const loadChanges = async (pool: Pool, eventId: string, afterSeq: number, limit: number): Promise<readonly SeatChange[]> => {
   const res = await pool.query<{ seq: string; seat_id: string | null; zone_id: string | null; status: string; held_until: Date | null; available: number | null }>(
@@ -56,6 +57,10 @@ export const createRealtimePublisher = (deps: { readonly redis: Redis; readonly 
         pending.delete(eventId);
         void flush(eventId).catch(() => undefined);
       }, deps.debounceMs ?? 15);
+    },
+    /** Closes every open socket of a signed-out session, on whichever api copy holds it. */
+    dropSession: (sessionId: string): void => {
+      emitter.in(sessionRoom(sessionId)).disconnectSockets(true);
     },
     toUser: (userId: string, event: string, payload: unknown): void => {
       emitter.to(userRoom(userId)).emit(event, payload);

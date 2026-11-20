@@ -19,8 +19,10 @@ export const bootApi = async (db: TestDb, overrides: Readonly<Record<string, str
     NODE_ENV: 'test',
     DB_POOL_MAX: '10',
     TEST_CLOCK_ENABLED: 'true',
+    REGISTER_THROTTLE_IP_MAX: '100000',
     LOGIN_THROTTLE_IP_MAX: '100000',
     LOGIN_THROTTLE_ACCOUNT_IP_MAX: '100000',
+    REFRESH_REUSE_GRACE_SECONDS: '0', // strict by default; the grace window has its own test
     ...overrides,
   });
   if (!parsed.ok) throw new Error(`invalid test env: ${parsed.errors.join('; ')}`);

@@ -258,6 +258,19 @@ describe('chaos mode', () => {
     }
   });
 
+  it('opening a payment that is already settled sends the buyer back to the shop instead of a dead-end page', async () => {
+    const r = await ca.post('/stub/v1/payments', { amount: 5_000, orderRef: 'order-back', returnUrl: '/orders/order-back' }, { headers: { ...auth(), 'idempotency-key': idemKey() } });
+    await spaced();
+    const id = (r.json as { id: string }).id;
+    const pending = await ca.get(`/stub/pay/${id}`);
+    await spaced();
+    expect(pending.status).toBe(200);
+    await click(ca, id, 'success');
+    const again = await ca.get(`/stub/pay/${id}`);
+    expect(again.status).toBe(303);
+    expect(again.headers['location']).toBe(`/orders/order-back?payment=${id}&status=succeeded`);
+  });
+
   it('every tenth request answers 503', async () => {
     await new Promise((resolve) => setTimeout(resolve, 1_100));
     const codes: number[] = [];

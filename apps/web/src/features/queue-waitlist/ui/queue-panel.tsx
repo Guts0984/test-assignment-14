@@ -43,7 +43,7 @@ const useQueueView = (eventId: string, enabled: boolean) => {
 };
 
 /** Virtual queue: join once, see the position and estimated wait, get access when it is your turn. A reload keeps the place. */
-export const QueuePanel = ({ eventId, queueActive, onAdmitted }: { readonly eventId: string; readonly queueActive: boolean; readonly onAdmitted?: (admitted: boolean) => void }) => {
+export const QueuePanel = ({ eventId, queueActive, onAdmitted, autoJoin = true }: { readonly eventId: string; readonly queueActive: boolean; readonly onAdmitted?: (admitted: boolean) => void; readonly autoJoin?: boolean }) => {
   const t = useTranslations('queue');
   const qc = useQueryClient();
   const session = useSession();
@@ -56,11 +56,16 @@ export const QueuePanel = ({ eventId, queueActive, onAdmitted }: { readonly even
     mutationFn: async () => (await queueControllerLeave({ path: { eventId }, throwOnError: true })).data,
     onSuccess: (v) => qc.setQueryData(['queue', eventId], v),
   });
+  // Opening the sale page makes a signed-in buyer a claimant of the event, which is what switches the queue on for a crowd.
+  const needsJoin = autoJoin && session.status === 'authenticated' && view.isSuccess && view.data === null;
+  useEffect(() => {
+    if (needsJoin && !join.isPending && !join.isError && !join.isSuccess) join.mutate();
+  }, [needsJoin, join]);
   const status = view.data?.status;
   const admitted = status === 'admitted' || status === 'selecting';
   useEffect(() => onAdmitted?.(admitted), [admitted, onAdmitted]);
   if (session.status !== 'authenticated') return null;
-  if (!queueActive && !view.data) return null;
+  if (!queueActive && (!view.data || admitted)) return null; // a queue that is off stays out of the way
   const deadline = view.data?.mustStartBefore;
   return (
     <section aria-label={t('title')} className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3" data-testid="queue-panel">

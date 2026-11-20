@@ -75,10 +75,17 @@ export class PaymentStubController {
   @Get('pay/:id')
   @Header('Content-Type', 'text/html; charset=utf-8')
   @Header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'")
-  async page(@Param('id') id: string): Promise<string> {
+  async page(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const payment = await getPayment(this.pool, id);
     if (!payment) throw new AppException(appError('NOT_FOUND', 'Payment not found'));
-    return paymentPage(payment);
+    // Opening a payment that is already settled (Back button, a second tab, a stale Pay button) must not strand the buyer on a
+    // dead-end page: like a real provider, send them back to the shop, which shows the true state of the order.
+    const target = payment.status === 'pending' ? null : await this.returnUrlOf(id);
+    if (target) {
+      res.redirect(303, `${target}${target.includes('?') ? '&' : '?'}payment=${encodeURIComponent(id)}&status=${payment.status}`);
+      return;
+    }
+    res.type('html').send(paymentPage(payment));
   }
 
   @Post('pay/:id/:action')

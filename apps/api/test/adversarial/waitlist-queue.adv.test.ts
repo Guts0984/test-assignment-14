@@ -166,4 +166,22 @@ describe('virtual queue through the API', () => {
     expect(waitingPositions).toEqual(Array.from({ length: 280 }, (_, i) => i + 1));
     expect(statusCounts(positions)).toEqual({ 200: 300 });
   });
+
+  it('with the real thresholds, 300 buyers who skip the join button and just hold seats still switch the queue on and are capped at 200', async () => {
+    const a = await bootApi(tdb); // QUEUE_ACTIVATE_AT=500, QUEUE_MAX_SELECTING=200
+    const b = await bootApi(tdb, { API_INSTANCE_ID: 'api-2' });
+    closers.push(a.close, b.close);
+    const ca = client({ baseUrl: a.baseUrl, sourceIp: '127.0.0.156' });
+    const cb = client({ baseUrl: b.baseUrl, sourceIp: '127.0.0.157' });
+    const organizer = await createUser(tdb.pool, a.env, 'organizer');
+    const ev = await createOnSaleEvent(ca, tdb.pool, organizer, { seats: 300 });
+    const crowd = await createUsers(tdb.pool, a.env, 300);
+    const replies = await Promise.all(crowd.map((u, i) => (i % 2 ? cb : ca).post(`/api/events/${ev.eventId}/holds`, { seatIds: [ev.seatIds[i]] }, { token: u.token, headers: { 'idempotency-key': idem() } })));
+    const codes = replies.map((r) => (r.status === 200 ? 'held' : (r.json as { error: { code: string } }).error.code));
+    expect(codes.filter((c) => c === 'held')).toHaveLength(200);
+    expect(codes.filter((c) => c === 'QUEUE_REQUIRED')).toHaveLength(100);
+    expect((await q(`SELECT queue_active FROM events WHERE id = $1`, [ev.eventId]))[0]).toMatchObject({ queue_active: true });
+    expect((await q(`SELECT COUNT(*)::int AS n FROM queue_entries WHERE event_id = $1 AND status IN ('admitted', 'selecting')`, [ev.eventId]))[0]?.['n']).toBe(200);
+    expect((await q(`SELECT COUNT(*)::int AS n FROM orders WHERE event_id = $1 AND status = 'holding'`, [ev.eventId]))[0]?.['n']).toBe(200);
+  });
 });
