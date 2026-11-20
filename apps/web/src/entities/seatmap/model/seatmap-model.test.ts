@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSeatIndex, centerShortRows, hitTest, moveCursor } from './seat-index';
+import { buildSeatIndex, centerShortRows, compactGaps, hitTest, moveCursor } from './seat-index';
 import { applyChanges, effectiveStatus, fromSnapshot, type SeatChange } from './seat-state';
 
 const grid = (rows: number, cols: number) => {
@@ -91,5 +91,16 @@ describe('centerShortRows', () => {
   it('keeps gaps inside a row and treats zones separately', () => {
     const out = centerShortRows([0, 40, 100, 110], [0, 0, 0, 0], [0, 0, 1, 1], ['1', '1', '1', '1']);
     expect([...out]).toEqual([0, 40, 100, 110]); // each row is the full width of its own zone
+  });
+});
+
+describe('compactGaps', () => {
+  it('shrinks the empty band between zones to two pitches and keeps spacing inside a zone', () => {
+    const y = [1000, 1014, 1028, 2000, 2014, 3000];
+    expect([...compactGaps(y)]).toEqual([1000, 1014, 1028, 1056, 1070, 1098]);
+  });
+
+  it('leaves a layout without big gaps unchanged', () => {
+    expect([...compactGaps([0, 10, 20, 30, 40])]).toEqual([0, 10, 20, 30, 40]);
   });
 });

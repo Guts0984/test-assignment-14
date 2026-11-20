@@ -18,6 +18,26 @@ export interface SeatIndex {
 const key = (cx: number, cy: number): number => cx * 100_003 + cy;
 
 /**
+ * Squeezes empty bands between blocks of seats (the space between a parterre, a balcony and a VIP area) down to about two
+ * seat pitches, so zones sit close together. Distances inside a block are untouched; the pitch is the median step between
+ * neighbouring coordinates, and only gaps over five pitches are shrunk.
+ */
+export const compactGaps = (values: ArrayLike<number>): Float32Array => {
+  const unique = [...new Set(Array.from(values))].sort((a, b) => a - b);
+  if (unique.length < 3) return Float32Array.from(values);
+  const steps = unique.slice(1).map((v, i) => v - (unique[i] ?? 0)).sort((a, b) => a - b);
+  const pitch = steps[Math.floor(steps.length / 2)] ?? 1;
+  const mapped = new Map<number, number>();
+  let shift = 0;
+  unique.forEach((v, i) => {
+    const gap = i === 0 ? 0 : v - (unique[i - 1] ?? 0);
+    if (gap > 5 * pitch) shift += gap - 2 * pitch;
+    mapped.set(v, v - shift);
+  });
+  return Float32Array.from(values, (v) => mapped.get(v) ?? v);
+};
+
+/**
  * Rows that are shorter than the widest row of their zone (a last, partly filled row) are centred on the zone instead of
  * hugging its left edge, the way a seating chart is drawn. Full rows, and the order and gaps inside a row, are untouched.
  */
@@ -54,8 +74,8 @@ export const centerShortRows = (x: ArrayLike<number>, y: ArrayLike<number>, zone
 export const buildSeatIndex = (layout: Pick<SeatLayoutDto, 'seats'>, cell = 24): SeatIndex => {
   const { id, x, y, zone, tier, row, number } = layout.seats;
   const count = id.length;
-  const xs = centerShortRows(x, y, zone, row);
-  const ys = Float32Array.from(y);
+  const ys = compactGaps(y);
+  const xs = centerShortRows(compactGaps(x), ys, zone, row);
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;

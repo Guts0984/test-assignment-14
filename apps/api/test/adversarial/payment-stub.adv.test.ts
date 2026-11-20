@@ -248,6 +248,16 @@ describe('chaos mode', () => {
     await ca.post('/api/_test/stub-chaos', { chaos: false });
   });
 
+  it('the hosted payment page a buyer sees is never answered with the provider outage error', async () => {
+    const created = await createPayment(ca);
+    for (let i = 0; i < 25; i += 1) {
+      const page = await ca.get(`/stub/pay/${created.payment.id}`);
+      await spaced();
+      expect(page.status).toBe(200);
+      expect(page.headers['content-type']).toMatch(/text\/html/);
+    }
+  });
+
   it('every tenth request answers 503', async () => {
     await new Promise((resolve) => setTimeout(resolve, 1_100));
     const codes: number[] = [];

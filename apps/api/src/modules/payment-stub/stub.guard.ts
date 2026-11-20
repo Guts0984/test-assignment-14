@@ -35,7 +35,8 @@ export class StubGuard implements CanActivate {
     if (!decision.allowed) {
       throw new AppException(appError('RATE_LIMITED', 'Provider rate limit exceeded', { retryAfterSeconds: Math.max(1, Math.ceil(decision.retryAfterMs / 1_000)) }));
     }
-    if (await getChaos(this.pool, this.env.STUB_CHAOS)) {
+    // Chaos failures model the provider's API; the hosted page a buyer looks at is never turned into a raw JSON error.
+    if (req.path.startsWith('/stub/v1/') && (await getChaos(this.pool, this.env.STUB_CHAOS))) {
       if (isUnavailableRequest(await nextRequestNumber(this.pool))) throw new AppException(appError('PROVIDER_UNAVAILABLE', 'Provider is temporarily unavailable'));
     }
     if (req.path.startsWith('/stub/v1/')) {

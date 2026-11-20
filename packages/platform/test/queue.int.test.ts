@@ -29,7 +29,7 @@ const statusCounts = async (eventId: string): Promise<Record<string, number>> =>
 describe('virtual queue fairness and capacity', () => {
   it('queue mode stays off below the threshold: everyone is admitted at once', async () => {
     const w = await freshEvent();
-    const q = createVirtualQueue({ pool: tdb.pool, cfg: cfg({ activateAt: 50 }) });
+    const q = createVirtualQueue({ pool: tdb.pool, cfg: cfg({ activateAt: 50, maxSelecting: 50 }) });
     const views = await Promise.all(users.slice(0, 30).map((u) => q.join(w.eventId, u)));
     expect(views.every((v) => v.status === 'admitted' && !v.queueActive)).toBe(true);
     expect(await q.mustWait(w.eventId, users[0] ?? '')).toBe(false);

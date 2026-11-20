@@ -220,7 +220,7 @@ Assignment > CLAUDE.md > prompt. Only real conflicts are listed.
 | A-08 | Hold expiry without worker | Seat/zone/promo/limit counters are reclaimed *lazily* inside the same transaction that needs them (predicate `hold_expires_at <= app_now()` + reclaim step under the row/advisory lock), and all read paths filter by `app_now()`. The worker job only cleans up, emits live events and promo/limit counters eagerly. |
 | A-09 | Dance floor | Zone row `event_zones(capacity, sold, held)` with `CHECK (sold + held <= capacity)`; atomic conditional `UPDATE` with lazy reclaim. A hold stores quantity on `order_items`. |
 | A-10 | Hold "10 minutes from first selected seat" | `orders.hold_expires_at` set when the first item is added; never changed. Payment must complete within the same window (payment deadline = hold expiry, no separate extension). Adding items after `awaiting_payment` is not allowed; user may go back (order returns `holding`) until the deadline. |
-| A-11 | "Concurrent claimants > 500" | Claimants = users with a queue entry in `waiting/admitted/selecting` for that event. Queue mode turns on when claimants > `QUEUE_ACTIVATE_AT` (500, shared constant) and stays on until claimants = 0. Below the threshold users are admitted immediately (entry still recorded for the funnel). Cap of 200 selecting applies in queue mode. Join order = per-event PG sequence. |
+| A-11 | "Concurrent claimants > 500" | Claimants = users with a queue entry in `waiting/admitted/selecting` for that event. Queue mode turns on when claimants > `QUEUE_ACTIVATE_AT` (500, shared constant) and stays on until claimants = 0. Below the threshold users are admitted immediately (entry still recorded for the funnel), but only while fewer than `QUEUE_MAX_SELECTING` slots are in use: a burst that fills every slot turns the queue on early (found while preparing ACC-13), so 200 is never exceeded. Join order = per-event PG sequence. |
 | A-12 | Queue slot lifecycle | Admitted → must create a hold within 5 min else slot expires (next admitted). Slot is freed when the user's order is paid, expired, abandoned or after the hold TTL. ETA = `position / admission_rate` with rate observed over last 5 min (fallback 200 per 10 min). Admission SQL runs under per-event advisory lock and is invoked by api copies and the worker alike, so the 200 cap holds regardless of who calls. |
 | A-13 | "Has seats" filter | `capacity − sold − blocked > 0` from maintained counters; holds ignored (cheap, <200 ms); the seat map itself shows exact live state. |
 | A-14 | Seed realism | Set-based SQL (`INSERT … SELECT generate_series`) building users (one shared argon2id hash of a documented password), venues, events, event_seats, ~500k orders, 1M tickets, payments, ledger entries, rollups, queue-start events. Historical seed events sit in the past or future with legit state. Seed is idempotent (`seed_state` marker) and runs in the one-shot `migrate` service. |
@@ -528,7 +528,7 @@ Never push. Conventional Commits; footer per attribution rule. Before every comm
 - [x] C7 api money/ticket flows
 - [x] C8 worker
 - [x] C9 web
-- [ ] C10 nginx + full compose + adversarial + e2e + perf
+- [~] C10 nginx + full compose + adversarial + e2e (done: Dockerfile, nginx, compose + test profile, stack adversarial, 4 e2e journeys, CI e2e job; acceptance runs: see results below)
 - [ ] C11 README + docs + mutation check
 
 **Acceptance results** (filled during Phase 1): ACC-1 ☐ · 2 ☐ · 3 ☐ · 4 ☐ · 5 ☐ · 6 ☐ · 7 ☐ · 8 ☐ · 9 ☐ · 10 ☐ · 11 ☐ · 12 ☐ · 13 ☐ · 14 ☐ · 15 ☐ · 16 ☐ · 17 ☐ · 18 ☐ · 19 ☐ · 20 ☐
