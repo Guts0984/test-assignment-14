@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     test: {
       include: ['src/**/*.int.test.ts', 'test/integration/**/*.int.test.ts'],
-      globalSetup: ['./test/helpers/global-setup.ts'],
+      globalSetup: ['../../packages/testkit/src/global-setup.ts'],
       testTimeout: 60_000,
       hookTimeout: 120_000,
     },

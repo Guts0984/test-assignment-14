@@ -10,7 +10,7 @@
     "typecheck": "pnpm build:shared && pnpm -r --workspace-concurrency=1 typecheck",
     "lint": "eslint .",
     "test": "pnpm build:shared && pnpm -r test",
-    "test:int": "pnpm build:shared && pnpm -r test:int",
+    "test:int": "pnpm build:shared && pnpm -r --workspace-concurrency=1 test:int",
     "build": "pnpm -r build",
     "check:api-client": "node scripts/check-api-client.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createTestDb, type TestDb } from '../helpers/test-db.js';
+import { createTestDb, type TestDb } from '@ticketing/testkit';
 
 let tdb: TestDb;
 beforeAll(async () => {

@@ -201,6 +201,7 @@ Assignment > CLAUDE.md > prompt. Only real conflicts are listed.
 | D-05 | CLAUDE.md: jobs run in Redis/BullMQ; assignment: Redis loss must lose nothing. | BullMQ is only the *executor*; every scheduled task has a durable row in Postgres (`tasks`) and a rehydrator re-enqueues from PG (§4.4). BullMQ delays are wake-up hints; due-ness is decided by PG time. |
 | D-06 | CLAUDE.md says to add a general limiter only as optional hardening; the skill demands the per-IP limiter attack suite. | Assignment mandates only stub 20 rps + queue. I add optional login throttling (env-driven, loose test profile) and the skill's limiter tests apply to it and to the stub's global limiter (§6). |
 | D-07 | Assignment says "Time in tasks is mocked in tests"; CLAUDE.md says nothing. | Database-side test clock `app_now()` (A-07). |
+| D-09 | CLAUDE.md/plan folder tree has per-app `infra/` only; api and worker both need the same Redis limiters, task table API, rehydrator, BullMQ binding and virtual queue, and `packages/shared` must stay IO-free. | Two extra workspace packages: `packages/platform` (server-side IO shared by api and worker) and `packages/testkit` (test harness: template DB, fixtures, Redis, `waitFor`). No logic is duplicated. |
 | D-08 | Assignment's table says seed has 1 000 000 *sold tickets*; CLAUDE.md demands ledger balanced and DB the single truth. | Seed produces matching orders, payments (stub rows), ledger entries, rollups — not just ticket rows (A-14). |
 
 ---
@@ -253,6 +254,8 @@ Assignment > CLAUDE.md > prompt. Only real conflicts are listed.
 | A-43 | Transfer recipient | The recipient must already have an account (looked up by email); ownership moves immediately and `qr_version` is bumped. Unknown email → `TRANSFER_NOT_ALLOWED`. |
 | A-44 | Scope shift | QR signing lives in `apps/api` (node crypto, C7) rather than `packages/shared`, which stays framework/IO free; zod request schemas other than the venue layout are added with the endpoints (C5/C7). Ledger postings are SQL functions (`post_payment`, `post_refund`, `post_payout`, idempotent per ref) shared by api and worker; amounts come from rows computed in TS with `packages/shared` pricing. Tests read the DB through `pg`; the worker uses `pg` too (no Prisma client in the worker). |
 | A-45 | Seed provider payments | Seeded historical payments carry `provider_payment_id = 'seed_<orderId>'` and have no stub rows; reconciliation against the stub ignores the `seed_` prefix. Seeded orders have no `order_history` rows. Seed uses `session_replication_role = replica` for the bulk load (FK triggers skipped, verified by `seed.int` for every FK) and re-checks the ledger in SQL before commit. Seed users share one argon2id hash of `SEED_USER_PASSWORD`. Measured: full seed 1 min 54 s (50 000 users, 30 halls, 2 000 events, 1 000 000 tickets, 500 484 orders, 2.6 M event seats, 1.5 M ledger entries; DB 2.5 GB). |
+| A-46 | Raw SQL driver | api and worker run transactional/raw SQL through `pg` (the same functions are shared via `packages/platform`); Prisma is used for schema/migrations and simple non-transactional CRUD in the api (supersedes the `$queryRaw` remark in A-38). |
+| A-47 | Task executor details | BullMQ job id = `sha1(dedupeKey)-runAtMs` (same task+time dedupes, a retry is a new job); due-ness is always re-checked in PG (`app_now()`), so a stale/early/duplicate job just fails its claim. Lease 30 s with heartbeat; every claim counts as an attempt (a worker that died on the last attempt leaves the task `failed`, visible). Unknown task kind fails at once. Handlers may return `{ again }` to run another batch (attempts reset) - used by mass cancel. Rate limiters: exact sliding-window log (stub 20 rps, refund rate) and fixed window (login), both Lua on Redis `TIME`; failure policy (open/closed) + hard timeout per call. Queue mode flag lives on `events.queue_active`; position reads use a Redis sorted set that is rebuilt from PG whenever it is empty. |
 | A-42 | Web theme/other | Tailwind, light theme only, no UI kit dependency beyond small `shared/ui`. |
 
 ---
@@ -514,7 +517,7 @@ Never push. Conventional Commits; footer per attribution rule. Before every comm
 - [x] C1 scaffold + CI
 - [x] C2 db schema, ledger, constraints, shared rules
 - [x] C3 seed + indexes
-- [ ] C4 redis infra
+- [x] C4 redis infra
 - [ ] C5 api core
 - [ ] C6 payment stub + mail stub
 - [ ] C7 api money/ticket flows

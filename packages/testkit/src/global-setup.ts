@@ -12,7 +12,7 @@ export default async function setup(): Promise<void> {
   await admin.query(`CREATE DATABASE ${TEMPLATE_DB}`);
   await admin.end();
   execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
-    cwd: resolve(__dirname, '../..'),
+    cwd: resolve(__dirname, '../../../apps/api'),
     env: { ...process.env, DATABASE_URL: withDatabase(adminUrl, TEMPLATE_DB) },
     stdio: 'pipe',
   });

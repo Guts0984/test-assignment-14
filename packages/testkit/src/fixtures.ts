@@ -119,3 +119,18 @@ export const expectLedgerClean = async (db: Db): Promise<LedgerReport> => {
   }
   return report;
 };
+
+/** Bulk-creates buyers quickly (one statement). */
+export const insertUsers = async (db: Db, count: number): Promise<readonly string[]> => {
+  const res = await db.query(
+    `INSERT INTO users (email, password_hash, display_name, role)
+     SELECT gen_random_uuid() || '@example.test', 'x', 'Bulk', 'buyer' FROM generate_series(1, $1::int) RETURNING id`,
+    [count],
+  );
+  return res.rows.map((r: { id: string }) => r.id);
+};
+
+/** Moves the database clock (`app_now()`) forward by `ms` relative to the real clock. */
+export const setClockOffset = async (db: Db, ms: number): Promise<void> => {
+  await db.query(`UPDATE test_clock SET offset_ms = $1`, [ms]);
+};

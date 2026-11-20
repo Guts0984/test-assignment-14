@@ -12,3 +12,6 @@ export { ACTORS, EVENT_STATUSES, EVENT_TRANSITIONS, ORDER_STATUSES, ORDER_TRANSI
 export type { Actor, EventStatus, OrderStatus, Transition } from './state/transitions.js';
 export { countSeats, totalCapacity, venueLayoutSchema, venueZoneSchema } from './schemas/venue.js';
 export type { VenueLayout, VenueZone } from './schemas/venue.js';
+export { retryDelayMs } from './jobs/retry.js';
+export { estimateWaitSeconds } from './queue/eta.js';
+export type { EtaInput } from './queue/eta.js';

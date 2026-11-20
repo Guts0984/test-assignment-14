@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createTestDb, type TestDb, createAwaitingOrder, createWorld, insertUser, payOrder, type World } from '@ticketing/testkit';
 import { EVENT_STATUSES, EVENT_TRANSITIONS, ORDER_STATUSES, ORDER_TRANSITIONS } from '@ticketing/shared';
-import { createTestDb, type TestDb } from '../helpers/test-db.js';
-import { createAwaitingOrder, createWorld, insertUser, payOrder, type World } from '../helpers/fixtures.js';
 
 let tdb: TestDb;
 let w: World;
