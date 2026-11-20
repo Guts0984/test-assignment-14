@@ -14,7 +14,8 @@ export interface ScanResult {
 
 const deny = (reason: Exclude<ScanReason, 'ok'>, message: string, extra: Partial<ScanResult> = {}): ScanResult => ({ result: 'deny', reason, message, enteredAt: null, gate: null, ticket: null, ...extra });
 
-const hhmm = (d: Date): string => d.toISOString().slice(11, 16);
+/** Entry time on the venue's clock (events are in Kyiv), as the gate staff read it. */
+const hhmm = (d: Date): string => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
 
 /** Only staff assigned to the event may use it; anything else looks like a missing event. */
 export const isAssigned = async (pool: Pool, eventId: string, userId: string): Promise<boolean> =>
@@ -62,7 +63,7 @@ export const scanTicket = async (pool: Pool, secret: string, input: { readonly e
   else if (t.ev_status === 'cancelled') r = deny('event_cancelled', 'The event was cancelled');
   else if (t.status === 'refunded') r = deny('refunded', 'This ticket was refunded');
   else if (t.qr_version !== code.version) r = deny('transferred', 'This ticket was transferred; the code is no longer valid');
-  else if (t.entered_at) r = deny('already_entered', `Already entered at ${hhmm(t.entered_at)} UTC, gate ${t.gate ?? '?'}`, { enteredAt: t.entered_at.toISOString(), gate: t.gate });
+  else if (t.entered_at) r = deny('already_entered', `Already entered at ${hhmm(t.entered_at)}, gate ${t.gate ?? '?'}`, { enteredAt: t.entered_at.toISOString(), gate: t.gate });
   else r = deny('invalid_code', 'Ticket cannot be used');
   await log(code.ticketId, r);
   return r;

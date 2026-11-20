@@ -5,8 +5,6 @@ import { newOpaqueToken, hashRefreshToken } from './tokens.js';
 export interface SessionConfig {
   readonly pepper: string;
   readonly refreshTtlSeconds: number;
-  /** A token used this recently is a parallel request of the same client (two tabs), not a leak. 0 = strict. */
-  readonly reuseGraceSeconds?: number;
 }
 
 export interface IssuedRefresh {
@@ -41,16 +39,13 @@ export const rotateRefreshToken = async (pool: Pool, cfg: SessionConfig, token: 
   );
   const row = used.rows[0];
   if (row) return { kind: 'rotated', userId: row.user_id, familyId: row.family_id };
-  const known = await pool.query<{ user_id: string; family_id: string; used_at: Date | null; revoked_at: Date | null; age_s: number | null }>(
-    `SELECT user_id, family_id, used_at, revoked_at, EXTRACT(EPOCH FROM (now() - used_at))::float8 AS age_s FROM refresh_tokens WHERE token_hash = $1`,
+  const known = await pool.query<{ family_id: string; used_at: Date | null; revoked_at: Date | null }>(
+    `SELECT family_id, used_at, revoked_at FROM refresh_tokens WHERE token_hash = $1`,
     [hash],
   );
   const seen = known.rows[0];
   if (!seen) return { kind: 'invalid' };
   if (seen.used_at !== null) {
-    // Two tabs refreshing at the same moment present the same token: inside the short grace window the second one is
-    // given its own new token in the same session instead of being treated as a thief.
-    if (seen.revoked_at === null && seen.age_s !== null && seen.age_s <= (cfg.reuseGraceSeconds ?? 0)) return { kind: 'rotated', userId: seen.user_id, familyId: seen.family_id };
     await revokeFamily(pool, seen.family_id);
     return { kind: 'reused', familyId: seen.family_id };
   }

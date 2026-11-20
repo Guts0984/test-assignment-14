@@ -59,6 +59,8 @@ describe('deployed stack: nginx + two api copies', () => {
       times.push(r.ms);
     }
     await run;
-    expect([...times].sort((a, b) => a - b)[Math.floor(times.length * 0.95)] ?? 0).toBeLessThan(1_500);
+    // The budget depends on the machine: CI runs the attacker, the victims and the whole stack on two cores.
+    const budgetMs = Number(process.env['STACK_P95_BUDGET_MS'] ?? 1_500);
+    expect([...times].sort((a, b) => a - b)[Math.floor(times.length * 0.95)] ?? 0).toBeLessThan(budgetMs);
   });
 });

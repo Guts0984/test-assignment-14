@@ -183,7 +183,9 @@ describe('transfer and entrance (acceptance 15, 16)', () => {
     expect(pass.json).toMatchObject({ result: 'allow', reason: 'ok', gate: '3' });
     const again = (await scan(newTicket?.code ?? '', '4')).json as { result: string; reason: string; message: string; gate: string };
     expect(again).toMatchObject({ result: 'deny', reason: 'already_entered', gate: '3' });
-    expect(again.message).toMatch(/Already entered at \d\d:\d\d UTC, gate 3/);
+    expect(again.message).toMatch(/Already entered at \d\d:\d\d, gate 3/);
+    const kyiv = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    expect(again.message).toContain(kyiv.format(new Date((again as unknown as { enteredAt: string }).enteredAt))); // venue time, not UTC
     const history = (await http.get(`/api/orders/${order.id}/history`, { token: (alice as TestUser).token })).json as { items: { type: string }[] };
     expect(history.items.map((h) => h.type)).toContain('ticket_transferred');
   });

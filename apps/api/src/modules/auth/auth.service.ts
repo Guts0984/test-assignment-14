@@ -17,7 +17,7 @@ export class AuthService {
     @Inject(ENV) private readonly env: Env,
     @Inject(RT_PUBLISHER) private readonly rt: RealtimePublisher,
   ) {
-    this.cfg = { accessSecret: env.JWT_ACCESS_SECRET, accessTtlSeconds: env.ACCESS_TTL_SECONDS, pepper: env.JWT_REFRESH_PEPPER, refreshTtlSeconds: env.REFRESH_TTL_SECONDS, reuseGraceSeconds: env.REFRESH_REUSE_GRACE_SECONDS };
+    this.cfg = { accessSecret: env.JWT_ACCESS_SECRET, accessTtlSeconds: env.ACCESS_TTL_SECONDS, pepper: env.JWT_REFRESH_PEPPER, refreshTtlSeconds: env.REFRESH_TTL_SECONDS };
   }
 
   /** Account creation is throttled per client IP so one address cannot mass-produce accounts or probe which emails exist. Fails open when Redis is down. */
@@ -43,7 +43,8 @@ export class AuthService {
     return login(this.pool, this.cfg, email, password);
   }
 
-  refresh = (token: string): Promise<Result<TokenPair>> => refresh(this.pool, this.cfg, token);
+  /** A detected token theft revokes the session and closes its open sockets, just like a logout. */
+  refresh = (token: string): Promise<Result<TokenPair>> => refresh(this.pool, this.cfg, token, (session) => this.rt.dropSession(session));
   /** Revokes the session and closes its open sockets on every api copy, so a signed-out tab stops receiving personal events. */
   async logout(token: string): Promise<void> {
     const session = await logout(this.pool, this.cfg, token);

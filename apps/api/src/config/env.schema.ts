@@ -22,7 +22,6 @@ export const envSchema = z.object({
   JWT_REFRESH_PEPPER: secret,
   ACCESS_TTL_SECONDS: int(900),
   REFRESH_TTL_SECONDS: int(2_592_000),
-  REFRESH_REUSE_GRACE_SECONDS: int(10),
   QR_SIGNING_SECRET: secret,
   LOGIN_THROTTLE_IP_MAX: int(20),
   LOGIN_THROTTLE_ACCOUNT_IP_MAX: int(5),

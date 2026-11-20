@@ -184,4 +184,19 @@ describe('virtual queue through the API', () => {
     expect((await q(`SELECT COUNT(*)::int AS n FROM queue_entries WHERE event_id = $1 AND status IN ('admitted', 'selecting')`, [ev.eventId]))[0]?.['n']).toBe(200);
     expect((await q(`SELECT COUNT(*)::int AS n FROM orders WHERE event_id = $1 AND status = 'holding'`, [ev.eventId]))[0]?.['n']).toBe(200);
   });
+
+  it('a hold attempted before the sale opens is refused and leaves no queue entry behind', async () => {
+    const a = await bootApi(tdb);
+    closers.push(a.close);
+    const ca = client({ baseUrl: a.baseUrl, sourceIp: '127.0.0.158' });
+    const organizer = await createUser(tdb.pool, a.env, 'organizer');
+    const ev = await createOnSaleEvent(ca, tdb.pool, organizer, { seats: 5 });
+    await tdb.pool.query(`UPDATE events SET sales_start_at = now() + interval '1 day' WHERE id = $1`, [ev.eventId]);
+    const early = await createUsers(tdb.pool, a.env, 3);
+    for (const u of early) {
+      const r = await ca.post(`/api/events/${ev.eventId}/holds`, { seatIds: [ev.seatIds[0]] }, { token: u.token, headers: { 'idempotency-key': idem() } });
+      expect(r.json).toMatchObject({ error: { code: 'EVENT_NOT_ON_SALE' } });
+    }
+    expect((await q(`SELECT COUNT(*)::int AS n FROM queue_entries WHERE event_id = $1`, [ev.eventId]))[0]?.['n']).toBe(0);
+  });
 });

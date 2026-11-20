@@ -64,8 +64,10 @@ export const login = async (pool: Pool, cfg: AuthConfig, email: string, password
   return ok(await mintPair(pool, cfg, user));
 };
 
-export const refresh = async (pool: Pool, cfg: AuthConfig, token: string): Promise<Result<TokenPair>> => {
+/** `onSessionRevoked` is told which session a detected theft revoked, so its live connections can be closed too. */
+export const refresh = async (pool: Pool, cfg: AuthConfig, token: string, onSessionRevoked: (sessionId: string) => void = () => undefined): Promise<Result<TokenPair>> => {
   const outcome = await rotateRefreshToken(pool, cfg, token);
+  if (outcome.kind === 'reused') onSessionRevoked(outcome.familyId);
   if (outcome.kind === 'reused') return err(appError('TOKEN_REUSE_DETECTED', 'Refresh token was already used; the session was revoked'));
   if (outcome.kind === 'invalid') return err(appError('UNAUTHENTICATED', 'Invalid refresh token'));
   const res = await pool.query<UserRow>(`SELECT * FROM users WHERE id = $1`, [outcome.userId]);

@@ -65,6 +65,19 @@ describe('logging out closes open sockets', () => {
   });
 });
 
+describe('token theft closes open sockets', () => {
+  it('replaying a used refresh token revokes the session and disconnects its socket on the other api copy', async () => {
+    const r = await ca.post('/api/auth/register', { email: `theft-${crypto.randomUUID()}@example.test`, password: 'Correct-horse-battery-1', displayName: 'T' });
+    const first = r.json as { accessToken: string; refreshToken: string };
+    const rotated = (await ca.post('/api/auth/refresh', { refreshToken: first.refreshToken })).json as { accessToken: string };
+    const socket = await connect(b, rotated.accessToken);
+    const closed = new Promise<string>((resolve) => socket.on('disconnect', (reason) => resolve(reason)));
+    const replay = await ca.post('/api/auth/refresh', { refreshToken: first.refreshToken });
+    expect(replay.json).toMatchObject({ error: { code: 'TOKEN_REUSE_DETECTED' } });
+    expect(await closed).toBe('io server disconnect');
+  });
+});
+
 describe('live seat updates across both api copies (acceptance 3)', () => {
   it('a seat held through copy A reaches a viewer connected to copy B in under a second, and release/sale follow', async () => {
     const [watcher, buyer] = await createUsers(tdb.pool, a.env, 2);

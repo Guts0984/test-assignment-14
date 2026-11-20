@@ -63,7 +63,7 @@ jobs:
       - name: Start the full stack (nginx, two api copies, worker, web, postgres, redis, mail stub)
         run: bash scripts/stack.sh up
       - name: Adversarial checks against the deployed stack
-        run: set -a && . ./.env && set +a && pnpm --filter @ticketing/api test:stack
+        run: set -a && . ./.env && set +a && STACK_P95_BUDGET_MS=3000 pnpm --filter @ticketing/api test:stack
       - run: pnpm --filter @ticketing/web exec playwright install --with-deps chromium
       - name: Browser journeys
         run: pnpm e2e

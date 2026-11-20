@@ -20,9 +20,16 @@ export class OrdersService {
 
   /** Idempotent hold. In queue mode only an admitted person may hold; the first hold starts their selection. */
   async hold(input: HoldInput, key: string): Promise<Result<OrderView>> {
-    // Everyone who tries to choose seats counts as a claimant of the event (idempotent), so a crowd that skips the join button
-    // still switches the queue on and is capped at the selection capacity.
-    await this.queue.join(input.eventId, input.userId).catch(() => undefined);
+    // Everyone who tries to choose seats on an open sale counts as a claimant of the event, so a crowd that skips the join
+    // button still switches the queue on and is capped at the selection capacity. Not before the sale opens (those entries
+    // would inflate the threshold), and not again for someone who already holds a place (keeps repeat holds off the queue lock).
+    const gate = (await this.pool.query<{ open: boolean; placed: boolean }>(
+      `SELECT (e.status IN ('on_sale', 'rescheduled') AND e.sales_start_at <= app_now()) AS open,
+              EXISTS (SELECT 1 FROM queue_entries q WHERE q.event_id = e.id AND q.user_id = $2 AND q.status IN ('waiting', 'admitted', 'selecting')) AS placed
+       FROM events e WHERE e.id = $1`,
+      [input.eventId, input.userId],
+    )).rows[0];
+    if (gate?.open && !gate.placed) await this.queue.join(input.eventId, input.userId).catch(() => undefined);
     if (await this.queue.mustWait(input.eventId, input.userId)) {
       return err(appError('QUEUE_REQUIRED', 'Join the virtual queue and wait for your turn to choose seats'));
     }

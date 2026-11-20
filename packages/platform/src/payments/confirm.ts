@@ -95,7 +95,16 @@ export const applyPaymentSucceeded = async (tx: PoolClient, paymentId: string, s
   await tx.query(`UPDATE payments SET status = 'succeeded', succeeded_at = app_now(), last_event_seq = GREATEST(last_event_seq, $2), updated_at = app_now() WHERE id = $1`, [paymentId, seq ?? 0]);
   const items = (await tx.query<ItemRow>(`SELECT id, seat_id, zone_id, price, discount, fee FROM order_items WHERE order_id = $1 ORDER BY id`, [order.id])).rows;
 
-  const onTime = order.status === 'awaiting_payment' && !order.expired;
+  // On time means the order still owns every one of its seats. The clock alone is not enough: if its seats were released and
+  // sold to someone else meanwhile, issuing tickets would double-sell them, so such a payment takes the late-payment path.
+  const lost = order.status === 'awaiting_payment' && !order.expired
+    ? (await tx.query<{ n: number }>(
+        `SELECT COUNT(*)::int AS n FROM order_items i JOIN event_seats es ON es.event_id = i.event_id AND es.seat_id = i.seat_id
+         WHERE i.order_id = $1 AND i.seat_id IS NOT NULL AND NOT (es.status = 'held' AND es.hold_order_id = $1)`,
+        [order.id],
+      )).rows[0]?.n ?? 0
+    : 0;
+  const onTime = order.status === 'awaiting_payment' && !order.expired && lost === 0;
   if (onTime) {
     const live = (await tx.query<{ ok: boolean }>(`SELECT status IN ('on_sale', 'sold_out', 'rescheduled') AS ok FROM events WHERE id = $1`, [order.event_id])).rows[0];
     if (live?.ok) {

@@ -162,24 +162,6 @@ describe('refresh tokens', () => {
     expect(replies.filter((r) => r.status === 401)).toHaveLength(9);
   });
 
-  it('two tabs refreshing at the same moment both stay signed in; the same token much later is still treated as theft', async () => {
-    const lenient = await bootApi(tdb, { REFRESH_REUSE_GRACE_SECONDS: '10' });
-    try {
-      const c = client({ baseUrl: lenient.baseUrl, sourceIp: ip(91) });
-      const { tokens } = await register(c);
-      const [a, b] = await Promise.all([1, 2].map(() => c.post('/api/auth/refresh', { refreshToken: tokens.refreshToken })));
-      expect([a?.status, b?.status]).toEqual([200, 200]);
-      const pair = a?.json as { accessToken: string };
-      expect((await c.get('/api/auth/me', { token: pair.accessToken })).status).toBe(200); // the session was not revoked
-      await tdb.pool.query(`UPDATE refresh_tokens SET used_at = now() - interval '1 minute' WHERE used_at IS NOT NULL`);
-      const late = await c.post('/api/auth/refresh', { refreshToken: tokens.refreshToken });
-      expect(late.json).toMatchObject({ error: { code: 'TOKEN_REUSE_DETECTED' } });
-      expect((await c.get('/api/auth/me', { token: pair.accessToken })).status).toBe(401);
-    } finally {
-      await lenient.close();
-    }
-  });
-
   it('garbage refresh tokens are refused without leaking anything', async () => {
     for (const refreshToken of ['x'.repeat(30), 'A'.repeat(43), '../../etc/passwd'.padEnd(30, 'x')]) {
       const r = await http.post('/api/auth/refresh', { refreshToken });
