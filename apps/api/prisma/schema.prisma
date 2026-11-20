@@ -1,0 +1,723 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model accounts {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String           @unique
+  kind           String
+  balance        BigInt           @default(0)
+  created_at     DateTime         @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  ledger_daily   ledger_daily[]
+  ledger_entries ledger_entries[]
+}
+
+model emails {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dedupe_key String       @unique
+  to_email   String
+  subject    String
+  template   String
+  payload    Json         @default("{}")
+  status     email_status @default(pending)
+  message_id String
+  attempts   Int          @default(0)
+  created_at DateTime     @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  sent_at    DateTime?    @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model event_seats {
+  event_id              String       @db.Uuid
+  seat_id               BigInt
+  zone_id               String       @db.Uuid
+  tier_id               String?      @db.Uuid
+  status                seat_status  @default(free)
+  hold_order_id         String?      @db.Uuid
+  hold_expires_at       DateTime?    @db.Timestamptz(6)
+  reserved_for_offer_id String?      @db.Uuid
+  events                events       @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  seats                 seats        @relation(fields: [seat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  price_tiers           price_tiers? @relation(fields: [tier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zones                 zones        @relation(fields: [zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([event_id, seat_id])
+  @@index([event_id, status], map: "event_seats_status_idx")
+}
+
+model event_staff {
+  event_id String @db.Uuid
+  user_id  String @db.Uuid
+  events   events @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users    users  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([event_id, user_id])
+  @@index([user_id], map: "event_staff_user_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model event_zones {
+  event_id    String       @db.Uuid
+  zone_id     String       @db.Uuid
+  tier_id     String?      @db.Uuid
+  capacity    Int
+  sold        Int          @default(0)
+  held        Int          @default(0)
+  events      events       @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  price_tiers price_tiers? @relation(fields: [tier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zones       zones        @relation(fields: [zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([event_id, zone_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model events {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizer_id       String             @db.Uuid
+  venue_id           String             @db.Uuid
+  title              String
+  description        String             @default("")
+  city               String
+  category           String
+  starts_at          DateTime           @db.Timestamptz(6)
+  previous_starts_at DateTime?          @db.Timestamptz(6)
+  rescheduled_at     DateTime?          @db.Timestamptz(6)
+  sales_start_at     DateTime           @db.Timestamptz(6)
+  status             event_status       @default(draft)
+  per_person_limit   Int                @default(6)
+  capacity           Int
+  sold_count         Int                @default(0)
+  blocked_count      Int                @default(0)
+  min_price          Int?
+  max_price          Int?
+  seat_seq           BigInt             @default(0)
+  queue_active       Boolean            @default(false)
+  cancelled_at       DateTime?          @db.Timestamptz(6)
+  created_at         DateTime           @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  event_seats        event_seats[]
+  event_staff        event_staff[]
+  event_zones        event_zones[]
+  users              users              @relation(fields: [organizer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  venues             venues             @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order_items        order_items[]
+  orders             orders[]
+  payouts            payouts?
+  price_tiers        price_tiers[]
+  promo_codes        promo_codes[]
+  queue_entries      queue_entries[]
+  sales_hourly       sales_hourly[]
+  seat_events        seat_events[]
+  tickets            tickets[]
+  waitlist_entries   waitlist_entries[]
+  waitlist_offers    waitlist_offers[]
+
+  @@index([category, starts_at], map: "events_category_idx")
+  @@index([city, starts_at], map: "events_city_idx")
+  @@index([organizer_id, starts_at], map: "events_organizer_idx")
+  @@index([status, starts_at], map: "events_status_start_idx")
+  @@index([title(ops: raw("gin_trgm_ops"))], map: "events_title_trgm_idx", type: Gin)
+  @@index([venue_id], map: "events_venue_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model idempotency_keys {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String   @db.Uuid
+  scope           String
+  key             String
+  request_hash    String
+  response_status Int?
+  response_body   Json?
+  created_at      DateTime @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+
+  @@unique([user_id, scope, key])
+}
+
+model ledger_daily {
+  account_id String   @db.Uuid
+  day        DateTime @db.Date
+  debit      BigInt   @default(0)
+  credit     BigInt   @default(0)
+  accounts   accounts @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([account_id, day])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ledger_entries {
+  id                  BigInt              @id @default(autoincrement())
+  txn_id              String              @db.Uuid
+  account_id          String              @db.Uuid
+  amount              BigInt
+  event_id            String?             @db.Uuid
+  order_id            String?             @db.Uuid
+  created_at          DateTime            @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  accounts            accounts            @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ledger_transactions ledger_transactions @relation(fields: [txn_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([account_id, created_at], map: "ledger_entries_account_idx")
+  @@index([txn_id], map: "ledger_entries_txn_idx")
+}
+
+model ledger_transactions {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind           String
+  ref_id         String           @db.Uuid
+  created_at     DateTime         @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  ledger_entries ledger_entries[]
+
+  @@unique([kind, ref_id])
+}
+
+model order_history {
+  id         BigInt   @id @default(autoincrement())
+  order_id   String   @db.Uuid
+  at         DateTime @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  actor_id   String?  @db.Uuid
+  actor_role String
+  type       String
+  data       Json     @default("{}")
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id, id], map: "order_history_order_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_items {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id     String         @db.Uuid
+  event_id     String         @db.Uuid
+  zone_id      String         @db.Uuid
+  tier_id      String?        @db.Uuid
+  seat_id      BigInt?
+  price        Int
+  discount     Int            @default(0)
+  fee          Int            @default(0)
+  events       events         @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders       orders         @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  seats        seats?         @relation(fields: [seat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  price_tiers  price_tiers?   @relation(fields: [tier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zones        zones          @relation(fields: [zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  refund_items refund_items[]
+  tickets      tickets?
+
+  @@index([event_id], map: "order_items_event_idx")
+  @@index([order_id], map: "order_items_order_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model orders {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String          @db.Uuid
+  event_id        String          @db.Uuid
+  status          order_status    @default(holding)
+  hold_expires_at DateTime?       @db.Timestamptz(6)
+  promo_id        String?         @db.Uuid
+  promo_held      Boolean         @default(false)
+  subtotal        Int             @default(0)
+  discount        Int             @default(0)
+  fee             Int             @default(0)
+  total           Int             @default(0)
+  paid_at         DateTime?       @db.Timestamptz(6)
+  created_at      DateTime        @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  updated_at      DateTime        @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  order_history   order_history[]
+  order_items     order_items[]
+  events          events          @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  promo_codes     promo_codes?    @relation(fields: [promo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users           @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments        payments[]
+  refunds         refunds[]
+  tickets         tickets[]
+
+  @@index([event_id, status], map: "orders_event_status_idx")
+  @@index([user_id, created_at(sort: Desc)], map: "orders_user_idx")
+}
+
+model payment_events {
+  provider_event_id String   @id
+  payment_id        String?  @db.Uuid
+  kind              String
+  payload           Json
+  received_at       DateTime @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payments {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id            String         @db.Uuid
+  amount              Int
+  status              payment_status @default(created)
+  provider_payment_id String?        @unique
+  last_event_seq      Int            @default(0)
+  created_at          DateTime       @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  updated_at          DateTime       @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  succeeded_at        DateTime?      @db.Timestamptz(6)
+  orders              orders         @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id], map: "payments_order_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payouts {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_id     String        @unique @db.Uuid
+  organizer_id String        @db.Uuid
+  sales        BigInt
+  refunds      BigInt
+  commission   BigInt
+  amount       BigInt
+  status       payout_status @default(pending)
+  due_at       DateTime      @db.Timestamptz(6)
+  executed_at  DateTime?     @db.Timestamptz(6)
+  created_at   DateTime      @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  events       events        @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users        users         @relation(fields: [organizer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model price_tiers {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_id    String        @db.Uuid
+  name        String
+  price       Int
+  sort        Int           @default(0)
+  event_seats event_seats[]
+  event_zones event_zones[]
+  order_items order_items[]
+  events      events        @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([event_id], map: "price_tiers_event_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model promo_codes {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizer_id String     @db.Uuid
+  event_id     String?    @db.Uuid
+  code         String     @unique
+  kind         promo_kind
+  value        Int
+  usage_limit  Int
+  used_count   Int        @default(0)
+  created_at   DateTime   @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  orders       orders[]
+  events       events?    @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users      @relation(fields: [organizer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([organizer_id], map: "promo_codes_organizer_idx")
+}
+
+model queue_entries {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_id     String       @db.Uuid
+  user_id      String       @db.Uuid
+  seq          BigInt       @default(autoincrement())
+  status       queue_status @default(waiting)
+  joined_at    DateTime     @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  admitted_at  DateTime?    @db.Timestamptz(6)
+  selecting_at DateTime?    @db.Timestamptz(6)
+  finished_at  DateTime?    @db.Timestamptz(6)
+  paid         Boolean      @default(false)
+  events       events       @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([event_id, user_id])
+  @@index([event_id, status, seq], map: "queue_entries_order_idx")
+}
+
+model refresh_tokens {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  family_id  String    @db.Uuid
+  token_hash String    @unique
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([family_id], map: "refresh_tokens_family_idx")
+  @@index([user_id], map: "refresh_tokens_user_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model refund_items {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  refund_id     String      @db.Uuid
+  order_item_id String      @db.Uuid
+  price_amount  Int
+  fee_amount    Int
+  active        Boolean     @default(true)
+  order_items   order_items @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  refunds       refunds     @relation(fields: [refund_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([refund_id], map: "refund_items_refund_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model refunds {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id           String         @db.Uuid
+  kind               refund_kind
+  status             refund_status  @default(requested)
+  price_amount       Int
+  fee_amount         Int
+  amount             Int
+  reason             String?
+  requested_by       String?        @db.Uuid
+  provider_refund_id String?        @unique
+  last_event_seq     Int            @default(0)
+  created_at         DateTime       @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  updated_at         DateTime       @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  completed_at       DateTime?      @db.Timestamptz(6)
+  refund_items       refund_items[]
+  orders             orders         @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id], map: "refunds_order_idx")
+}
+
+model sales_hourly {
+  event_id         String   @db.Uuid
+  zone_id          String   @db.Uuid
+  hour             DateTime @db.Timestamptz(6)
+  organizer_id     String   @db.Uuid
+  tickets          Int      @default(0)
+  gross            BigInt   @default(0)
+  fees             BigInt   @default(0)
+  refunded_tickets Int      @default(0)
+  refunds          BigInt   @default(0)
+  events           events   @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zones            zones    @relation(fields: [zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([event_id, zone_id, hour])
+  @@index([hour])
+  @@index([organizer_id, hour], map: "sales_hourly_organizer_idx")
+}
+
+model seat_events {
+  event_id   String    @db.Uuid
+  seq        BigInt
+  seat_id    BigInt?
+  zone_id    String?   @db.Uuid
+  status     String
+  held_until DateTime? @db.Timestamptz(6)
+  available  Int?
+  created_at DateTime  @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  events     events    @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([event_id, seq])
+}
+
+model seats {
+  id              BigInt            @id @default(autoincrement())
+  venue_id        String            @db.Uuid
+  zone_id         String            @db.Uuid
+  row_label       String
+  number          Int
+  x               Float             @db.Real
+  y               Float             @db.Real
+  event_seats     event_seats[]
+  order_items     order_items[]
+  venues          venues            @relation(fields: [venue_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  zones           zones             @relation(fields: [zone_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tickets         tickets[]
+  waitlist_offers waitlist_offers[]
+
+  @@unique([zone_id, row_label, number])
+  @@index([venue_id], map: "seats_venue_idx")
+}
+
+model seed_state {
+  key     String   @id
+  done_at DateTime @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+}
+
+model tasks {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind         String
+  dedupe_key   String      @unique
+  payload      Json        @default("{}")
+  run_at       DateTime    @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  status       task_status @default(pending)
+  attempts     Int         @default(0)
+  max_attempts Int         @default(8)
+  last_error   String?
+  lease_owner  String?
+  lease_until  DateTime?   @db.Timestamptz(6)
+  created_at   DateTime    @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  updated_at   DateTime    @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  completed_at DateTime?   @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model test_clock {
+  id        Int    @id @default(1)
+  offset_ms BigInt @default(0)
+}
+
+model ticket_scans {
+  id         BigInt   @id @default(autoincrement())
+  ticket_id  String?  @db.Uuid
+  event_id   String   @db.Uuid
+  scanner_id String   @db.Uuid
+  gate       String?
+  result     String
+  reason     String?
+  at         DateTime @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+
+  @@index([event_id, at], map: "ticket_scans_event_idx")
+  @@index([ticket_id], map: "ticket_scans_ticket_idx")
+}
+
+model ticket_transfers {
+  id                                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id                               String   @db.Uuid
+  from_user                               String   @db.Uuid
+  to_user                                 String   @db.Uuid
+  qr_version                              Int
+  at                                      DateTime @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  users_ticket_transfers_from_userTousers users    @relation("ticket_transfers_from_userTousers", fields: [from_user], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tickets                                 tickets  @relation(fields: [ticket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_ticket_transfers_to_userTousers   users    @relation("ticket_transfers_to_userTousers", fields: [to_user], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([ticket_id], map: "ticket_transfers_ticket_idx")
+}
+
+model tickets {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id         String             @db.Uuid
+  order_item_id    String             @unique @db.Uuid
+  event_id         String             @db.Uuid
+  owner_id         String             @db.Uuid
+  seat_id          BigInt?
+  zone_id          String             @db.Uuid
+  status           ticket_status      @default(valid)
+  qr_version       Int                @default(1)
+  entered_at       DateTime?          @db.Timestamptz(6)
+  gate             String?
+  created_at       DateTime           @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  ticket_transfers ticket_transfers[]
+  events           events             @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders           orders             @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order_items      order_items        @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users            users              @relation(fields: [owner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  seats            seats?             @relation(fields: [seat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zones            zones              @relation(fields: [zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([event_id, status], map: "tickets_event_idx")
+  @@index([order_id], map: "tickets_order_idx")
+  @@index([owner_id, created_at(sort: Desc)], map: "tickets_owner_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                                                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                              String             @unique
+  password_hash                                      String
+  display_name                                       String
+  role                                               user_role          @default(buyer)
+  created_at                                         DateTime           @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  event_staff                                        event_staff[]
+  events                                             events[]
+  orders                                             orders[]
+  payouts                                            payouts[]
+  promo_codes                                        promo_codes[]
+  queue_entries                                      queue_entries[]
+  refresh_tokens                                     refresh_tokens[]
+  ticket_transfers_ticket_transfers_from_userTousers ticket_transfers[] @relation("ticket_transfers_from_userTousers")
+  ticket_transfers_ticket_transfers_to_userTousers   ticket_transfers[] @relation("ticket_transfers_to_userTousers")
+  tickets                                            tickets[]
+  venues                                             venues[]
+  waitlist_entries                                   waitlist_entries[]
+  waitlist_offers                                    waitlist_offers[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model venues {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizer_id String?  @db.Uuid
+  name         String
+  city         String
+  capacity     Int
+  created_at   DateTime @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  events       events[]
+  seats        seats[]
+  users        users?   @relation(fields: [organizer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zones        zones[]
+
+  @@index([organizer_id], map: "venues_organizer_idx")
+}
+
+model waitlist_entries {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_id        String            @db.Uuid
+  user_id         String            @db.Uuid
+  zone_id         String?           @db.Uuid
+  seq             BigInt            @default(autoincrement())
+  status          waitlist_status   @default(waiting)
+  created_at      DateTime          @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  events          events            @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users             @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zones           zones?            @relation(fields: [zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  waitlist_offers waitlist_offers[]
+
+  @@unique([event_id, user_id])
+  @@index([event_id, status, seq], map: "waitlist_entries_order_idx")
+}
+
+model waitlist_offers {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entry_id         String           @db.Uuid
+  event_id         String           @db.Uuid
+  user_id          String           @db.Uuid
+  seat_id          BigInt?
+  zone_id          String?          @db.Uuid
+  status           offer_status     @default(active)
+  expires_at       DateTime         @db.Timestamptz(6)
+  created_at       DateTime         @default(dbgenerated("app_now()")) @db.Timestamptz(6)
+  waitlist_entries waitlist_entries @relation(fields: [entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  events           events           @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  seats            seats?           @relation(fields: [seat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users            users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  zones            zones?           @relation(fields: [zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model zones {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  venue_id         String             @db.Uuid
+  key              String
+  name             String
+  kind             zone_kind
+  capacity         Int
+  geometry         Json?
+  sort             Int                @default(0)
+  event_seats      event_seats[]
+  event_zones      event_zones[]
+  order_items      order_items[]
+  sales_hourly     sales_hourly[]
+  seats            seats[]
+  tickets          tickets[]
+  waitlist_entries waitlist_entries[]
+  waitlist_offers  waitlist_offers[]
+  venues           venues             @relation(fields: [venue_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([venue_id, key])
+}
+
+enum email_status {
+  pending
+  sent
+  failed
+}
+
+enum event_status {
+  draft
+  on_sale
+  sold_out
+  rescheduled
+  cancelled
+  finished
+  paid_out
+}
+
+enum offer_status {
+  active
+  expired
+  used
+  cancelled
+}
+
+enum order_status {
+  holding
+  awaiting_payment
+  paid
+  expired
+  partially_refunded
+  refunded
+}
+
+enum payment_status {
+  created
+  pending
+  succeeded
+  failed
+}
+
+enum payout_status {
+  pending
+  paid
+}
+
+enum promo_kind {
+  percent
+  fixed
+}
+
+enum queue_status {
+  waiting
+  admitted
+  selecting
+  done
+  expired
+  left
+}
+
+enum refund_kind {
+  user
+  finance
+  event_cancelled
+  late_payment
+}
+
+enum refund_status {
+  requested
+  pending
+  succeeded
+  failed
+}
+
+enum seat_status {
+  free
+  held
+  sold
+  blocked
+}
+
+enum task_status {
+  pending
+  running
+  done
+  failed
+}
+
+enum ticket_status {
+  valid
+  refunded
+}
+
+enum user_role {
+  buyer
+  organizer
+  scanner
+  finance
+}
+
+enum waitlist_status {
+  waiting
+  offered
+  fulfilled
+  left
+}
+
+enum zone_kind {
+  seated
+  general
+}

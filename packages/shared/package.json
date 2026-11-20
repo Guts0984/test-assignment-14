@@ -6,7 +6,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -14,5 +17,10 @@
     "test": "vitest run",
     "test:int": "echo \"no integration tests in shared\""
   },
-  "dependencies": { "zod": "^3.25.0" }
+  "dependencies": {
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "fast-check": "^4.10.3"
+  }
 }

@@ -21,6 +21,10 @@ export const RULES = Object.freeze({
   transferCutoffMs: HOUR_MS,
   payoutDelayMs: 3 * DAY_MS,
   stubRpsLimit: 20,
+  maxPriceKopecks: 10_000_000,
+  maxPerPersonLimit: 50,
+  maxVenueSeats: 12_000,
+  maxVenueZones: 200,
   jobMaxAttempts: 8,
   jobBackoffBaseMs: 2_000,
 } as const);

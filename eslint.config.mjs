@@ -46,12 +46,12 @@ export default tseslint.config(
   },
   {
     // test code may read the environment and use looser helpers
-    files: ['**/*.test.ts', '**/test/**/*.ts', 'apps/*/e2e/**/*.ts'],
+    files: ['**/*.test.ts', '**/test/**/*.ts', 'apps/*/e2e/**/*.ts', '**/vitest*.config.ts'],
     rules: { 'no-restricted-properties': 'off' },
   },
   {
     // tool configs and Next route files require default exports
-    files: ['**/*.config.{ts,mjs,js}', 'apps/web/app/**/{page,layout,loading,error,not-found,template,default}.tsx'],
+    files: ['**/*.config.{ts,mjs,js}', 'apps/*/test/helpers/global-setup.ts', 'apps/web/app/**/{page,layout,loading,error,not-found,template,default}.tsx'],
     rules: { 'no-restricted-exports': 'off' },
   },
   { files: ['**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly' } }, rules: { 'no-console': 'off', 'no-restricted-properties': 'off' } },
