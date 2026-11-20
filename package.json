@@ -15,7 +15,7 @@
     "check:api-client": "node scripts/check-api-client.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "verify": "bash scripts/verify.sh",
-    "build:shared": "pnpm --filter @ticketing/shared build"
+    "build:shared": "pnpm --filter @ticketing/shared build && pnpm --filter @ticketing/platform build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

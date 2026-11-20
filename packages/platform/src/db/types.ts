@@ -18,3 +18,18 @@ export const withTx = async <T>(pool: Pool, fn: (tx: PoolClient) => Promise<T>):
     client.release();
   }
 };
+
+const RETRYABLE = new Set(['40P01', '40001']);
+
+/** Like `withTx`, but retries (with a short jittered pause) when Postgres aborts for a deadlock or serialization failure. */
+export const withTxRetry = async <T>(pool: Pool, fn: (tx: PoolClient) => Promise<T>, attempts = 4): Promise<T> => {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await withTx(pool, fn);
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (attempt >= attempts || code === undefined || !RETRYABLE.has(code)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 5 + Math.random() * 25 * attempt));
+    }
+  }
+};

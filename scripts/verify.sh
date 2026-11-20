@@ -6,6 +6,6 @@ pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm lint
 pnpm check:secrets
+pnpm build
 pnpm check:api-client
 pnpm test
-pnpm build

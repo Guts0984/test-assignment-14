@@ -16,6 +16,7 @@ if (!hasScript('apps/api', 'gen:openapi')) {
   process.stdout.write('api-client check: no OpenAPI emitter yet (added in C5) - nothing to compare\n');
   process.exit(0);
 }
+run('pnpm --filter @ticketing/api build');
 run('pnpm --filter @ticketing/api gen:openapi');
 if (hasScript('apps/web', 'gen:client')) run('pnpm --filter @ticketing/web gen:client');
 try {

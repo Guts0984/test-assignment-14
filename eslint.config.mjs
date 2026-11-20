@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 const NEST_FILES = [
-  'apps/api/src/**/*.{module,controller,service,guard,filter,interceptor,pipe,gateway,dto}.ts',
+  'apps/api/src/**/*.{module,controller,service,guard,filter,interceptor,pipe,gateway,dto,exception}.ts',
   'apps/api/src/**/dto/**/*.ts',
   'apps/worker/src/**/*.{module,service}.ts',
 ];

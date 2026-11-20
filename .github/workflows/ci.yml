@@ -39,10 +39,10 @@ jobs:
       - run: pnpm lint
       - name: No secrets in the repo
         run: pnpm check:secrets
+      - run: pnpm build
       - name: Generated API client matches the schema
         run: pnpm check:api-client
       - name: Unit tests
         run: pnpm test
-      - name: Integration tests (real postgres and redis)
+      - name: Integration and adversarial tests (real postgres, redis and a booted server)
         run: pnpm test:int
-      - run: pnpm build

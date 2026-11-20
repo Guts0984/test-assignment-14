@@ -256,6 +256,7 @@ Assignment > CLAUDE.md > prompt. Only real conflicts are listed.
 | A-45 | Seed provider payments | Seeded historical payments carry `provider_payment_id = 'seed_<orderId>'` and have no stub rows; reconciliation against the stub ignores the `seed_` prefix. Seeded orders have no `order_history` rows. Seed uses `session_replication_role = replica` for the bulk load (FK triggers skipped, verified by `seed.int` for every FK) and re-checks the ledger in SQL before commit. Seed users share one argon2id hash of `SEED_USER_PASSWORD`. Measured: full seed 1 min 54 s (50 000 users, 30 halls, 2 000 events, 1 000 000 tickets, 500 484 orders, 2.6 M event seats, 1.5 M ledger entries; DB 2.5 GB). |
 | A-46 | Raw SQL driver | api and worker run transactional/raw SQL through `pg` (the same functions are shared via `packages/platform`); Prisma is used for schema/migrations and simple non-transactional CRUD in the api (supersedes the `$queryRaw` remark in A-38). |
 | A-47 | Task executor details | BullMQ job id = `sha1(dedupeKey)-runAtMs` (same task+time dedupes, a retry is a new job); due-ness is always re-checked in PG (`app_now()`), so a stale/early/duplicate job just fails its claim. Lease 30 s with heartbeat; every claim counts as an attempt (a worker that died on the last attempt leaves the task `failed`, visible). Unknown task kind fails at once. Handlers may return `{ again }` to run another batch (attempts reset) - used by mass cancel. Rate limiters: exact sliding-window log (stub 20 rps, refund rate) and fixed window (login), both Lua on Redis `TIME`; failure policy (open/closed) + hard timeout per call. Queue mode flag lives on `events.queue_active`; position reads use a Redis sorted set that is rebuilt from PG whenever it is empty. |
+| A-48 | API shape decisions | Global prefix `/api`, Swagger UI at `/docs` (JSON at `/docs-json`), stub will live at `/stub`. Auth: JSON token pair + httpOnly refresh cookie (`Path=/api/auth`); refresh reuse (even parallel) revokes the whole family; access tokens carry the session id and die on logout. `buyer` is the only role that holds/buys; organizers create halls/events/promos. Venue upload limit has its own body parser. Orders in `holding` whose timer passed are reported as `expired` by the API (server clock) before any worker runs. Holds take a shared advisory lock on the event and an exclusive one per (user, event); the per-person limit counts active holds + paid non-refunded tickets. Hold/release/promo/remove-item/promo SQL functions: `release_order`, `emit_seat_events`, `emit_zone_event` (migration 0003). |
 | A-42 | Web theme/other | Tailwind, light theme only, no UI kit dependency beyond small `shared/ui`. |
 
 ---
@@ -518,7 +519,7 @@ Never push. Conventional Commits; footer per attribution rule. Before every comm
 - [x] C2 db schema, ledger, constraints, shared rules
 - [x] C3 seed + indexes
 - [x] C4 redis infra
-- [ ] C5 api core
+- [x] C5 api core
 - [ ] C6 payment stub + mail stub
 - [ ] C7 api money/ticket flows
 - [ ] C8 worker

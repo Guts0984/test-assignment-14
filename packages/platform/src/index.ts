@@ -1,4 +1,4 @@
-export { withTx } from './db/types.js';
+export { withTx, withTxRetry } from './db/types.js';
 export type { Db } from './db/types.js';
 export { createRedis } from './redis/connection.js';
 export type { Redis } from './redis/connection.js';

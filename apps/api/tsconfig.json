@@ -1,5 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist", "noEmit": true },
-  "include": ["src", "test", "vitest.config.ts", "vitest.int.config.ts"]
+  "compilerOptions": {
+    "outDir": "dist",
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": [
+    "src",
+    "test",
+    "vitest.config.ts",
+    "vitest.int.config.ts"
+  ]
 }
