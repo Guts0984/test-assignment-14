@@ -22,5 +22,6 @@ export const HTTP_STATUS_BY_CODE: Readonly<Record<ErrorCode, number>> = Object.f
   PAYLOAD_TOO_LARGE: 413,
   UNSUPPORTED_MEDIA_TYPE: 415,
   RATE_LIMITED: 429,
+  PROVIDER_UNAVAILABLE: 503,
   INTERNAL: 500,
 });

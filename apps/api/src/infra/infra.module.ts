@@ -5,7 +5,7 @@ import { createLimiter, createRedis, createRedisQueueCache, createVirtualQueue, 
 import type { Env } from '../config/env.schema.js';
 import { createTrustedProxyMatcher, resolveClientIp } from '../common/client-ip.js';
 import type { Request } from 'express';
-import { CLIENT_IP, ENV, LIMITER, PG_POOL, PRISMA, REDIS, VIRTUAL_QUEUE } from './tokens.js';
+import { CLIENT_IP, ENV, LIMITER, PG_POOL, PRISMA, REDIS, STUB_LIMITER, VIRTUAL_QUEUE } from './tokens.js';
 
 @Global()
 @Module({})
@@ -31,6 +31,7 @@ export class InfraModule implements OnApplicationShutdown {
         },
       },
       { provide: LIMITER, useFactory: (redis: Redis) => createLimiter(redis, { onError: 'open', timeoutMs: 250 }), inject: [REDIS] },
+      { provide: STUB_LIMITER, useFactory: (redis: Redis) => createLimiter(redis, { onError: 'closed', timeoutMs: 400 }), inject: [REDIS] },
       {
         provide: VIRTUAL_QUEUE,
         useFactory: (pool: Pool, redis: Redis) => createVirtualQueue({ pool, cache: createRedisQueueCache(redis) }),

@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { EventsModule } from './modules/events/events.module.js';
 import { HealthController } from './modules/health/health.controller.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
+import { PaymentStubModule } from './modules/payment-stub/payment-stub.module.js';
 import { PromosModule } from './modules/promos/promos.module.js';
 import { TestkitModule } from './modules/testkit/testkit.module.js';
 import { VenuesModule } from './modules/venues/venues.module.js';
@@ -16,7 +17,7 @@ export class AppModule {
   static forRoot(env: Env): DynamicModule {
     return {
       module: AppModule,
-      imports: [InfraModule.forRoot(env), AuthModule, VenuesModule, EventsModule, OrdersModule, PromosModule, TestkitModule.register(env)],
+      imports: [InfraModule.forRoot(env), AuthModule, VenuesModule, EventsModule, OrdersModule, PromosModule, PaymentStubModule, TestkitModule.register(env)],
       controllers: [HealthController],
       providers: [{ provide: APP_GUARD, useClass: AuthGuard }],
     };

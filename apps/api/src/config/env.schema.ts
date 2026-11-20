@@ -32,6 +32,9 @@ export const envSchema = z.object({
   STUB_CHAOS: bool.default('false'),
   STUB_RPS_LIMIT: int(20),
   STUB_CHAOS_MAX_DELAY_MS: int(60_000),
+  STUB_API_KEY: secret,
+  STUB_DISPATCH_INTERVAL_MS: z.coerce.number().int().min(50).default(300),
+  PAYMENT_WEBHOOK_URL: z.string().url().default('http://nginx/api/webhooks/payments'),
   PAYMENT_PROVIDER_URL: z.string().url().default('http://nginx/stub'),
 });
 

@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -23,7 +23,7 @@ export const createApp = async (env: Env): Promise<INestApplication> => {
   app.use(json({ limit: env.BODY_LIMIT_BYTES }));
   app.use(errorMiddleware);
   app.use(rejectNullBytes);
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', { exclude: [{ path: 'stub/*splat', method: RequestMethod.ALL }] });
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalFilters(new AllExceptionsFilter());
   app.enableShutdownHooks();

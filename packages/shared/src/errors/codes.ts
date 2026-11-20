@@ -22,6 +22,7 @@ export const ERROR_CODES = [
   'QUEUE_REQUIRED',
   'EVENT_NOT_ON_SALE',
   'TOKEN_REUSE_DETECTED',
+  'PROVIDER_UNAVAILABLE',
   'INTERNAL',
 ] as const;
 

@@ -39,3 +39,11 @@ Real HTTP server (booted on an ephemeral port), real Postgres and Redis, attacke
 | CRLF header injection, odd HTTP methods | no injected header, clean JSON 404 | as expected | `input.adv.test.ts` | pass |
 | CORS, security headers, error bodies | foreign origin gets no CORS headers; helmet headers; no stack/SQL/paths | as expected | `input.adv.test.ts` | pass |
 | Ledger tampering (UPDATE/DELETE/TRUNCATE, unbalanced, hand-edited balance) | rejected by the database | as expected | `test/integration/ledger.int.test.ts` | pass |
+| Provider API without / with a wrong API key | 401 | as expected | `payment-stub.adv.test.ts` | pass |
+| Open redirect through the stub's `returnUrl` | only paths and our own origin are accepted | `https://evil...` and `//evil...` rejected | `payment-stub.adv.test.ts` | pass |
+| Stub burst of 60 requests; two api copies flooding together | at most 20 admitted in any one-second window, excess 429 + Retry-After | exact | `payment-stub.adv.test.ts` | pass |
+| Redis flushed / unavailable while the stub is in use | flush resets counters only; unavailable -> 503 fail-closed, no hang | as expected | `payment-stub.adv.test.ts` | pass |
+| Chaos: duplicate, delayed, reordered (failed after succeeded) and lost webhooks; every 10th request 503 | cycle covers every mode; lost operations are visible through the status API; signatures valid | as expected | `payment-stub.adv.test.ts` | pass |
+| 20 parallel refund requests against one payment | the sum never exceeds the payment | exactly 10 x 1 000 of 10 000 | `payment-stub.adv.test.ts` | pass |
+| Forged / tampered / replayed webhook signatures | `mismatch`, `malformed`, `stale` | unit-proven (property test: any one-character change fails) | `src/modules/payment-stub/domain/stub.test.ts` | pass |
+| Hostile mail subjects in the mail stub inbox | escaped | as expected | `infra/mailstub/src/mailstub.test.ts` | pass |
