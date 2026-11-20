@@ -1,7 +1,7 @@
-import { Global, Module, type DynamicModule, type OnApplicationShutdown, Inject } from '@nestjs/common';
+import { Global, Logger, Module, type DynamicModule, type OnApplicationShutdown, Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
-import { DEFAULT_QUEUE_CONFIG, createLimiter, createProviderClient, createRealtimePublisher, createRedis, createRedisQueueCache, createVirtualQueue, type Redis } from '@ticketing/platform';
+import { DEFAULT_QUEUE_CONFIG, createLimiter, createPgPool, createProviderClient, createRealtimePublisher, createRedis, createRedisQueueCache, createVirtualQueue, type Redis } from '@ticketing/platform';
 import type { Env } from '../config/env.schema.js';
 import { createTrustedProxyMatcher, resolveClientIp } from '../common/client-ip.js';
 import type { Request } from 'express';
@@ -27,7 +27,7 @@ export class InfraModule implements OnApplicationShutdown {
   static forRoot(env: Env): DynamicModule {
     const providers = [
       { provide: ENV, useValue: env },
-      { provide: PG_POOL, useFactory: (): Pool => new Pool({ connectionString: env.DATABASE_URL, max: env.DB_POOL_MAX }) },
+      { provide: PG_POOL, useFactory: (): Pool => createPgPool({ connectionString: env.DATABASE_URL, max: env.DB_POOL_MAX, onError: (e) => new Logger('postgres').warn(`connection error: ${e.message}`) }) },
       { provide: PRISMA, useFactory: (): PrismaClient => new PrismaClient({ datasourceUrl: withConnectionLimit(env.DATABASE_URL, 4) }) },
       { provide: REDIS, useFactory: (): Redis => createRedis(env.REDIS_URL, { lazyConnect: true, connectionName: env.API_INSTANCE_ID }) },
       {

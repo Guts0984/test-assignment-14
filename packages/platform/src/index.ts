@@ -1,3 +1,4 @@
+export { createPgPool } from './db/pool.js';
 export { withTx, withTxRetry } from './db/types.js';
 export type { Db } from './db/types.js';
 export { createRedis } from './redis/connection.js';

@@ -1,6 +1,5 @@
-import { Pool } from 'pg';
 import {
-  DEFAULT_QUEUE_CONFIG, createLimiter, createProviderClient, createRealtimePublisher, createRedis, createRedisQueueCache, createTaskQueue, createTaskRunner,
+  DEFAULT_QUEUE_CONFIG, createLimiter, createPgPool, createProviderClient, createRealtimePublisher, createRedis, createRedisQueueCache, createTaskQueue, createTaskRunner,
   createTaskWorker, createVirtualQueue, startRehydrator,
 } from '@ticketing/platform';
 import { createMailer } from './email/mailer.js';
@@ -40,7 +39,7 @@ export interface RunningWorker {
  */
 export const startWorker = (cfg: WorkerConfig): RunningWorker => {
   const log = cfg.log ?? (() => undefined);
-  const pool = new Pool({ connectionString: cfg.databaseUrl, max: cfg.dbPoolMax });
+  const pool = createPgPool({ connectionString: cfg.databaseUrl, max: cfg.dbPoolMax, onError: (e) => log(`postgres: ${e.message}`) });
   const redis = createRedis(cfg.redisUrl, { connectionName: cfg.instanceId, onError: (e) => log(`redis: ${e.message}`) });
   const bullConnection = createRedis(cfg.redisUrl, { connectionName: `${cfg.instanceId}-bull`, onError: () => undefined });
   const workerConnection = createRedis(cfg.redisUrl, { connectionName: `${cfg.instanceId}-bull-w`, onError: () => undefined });
