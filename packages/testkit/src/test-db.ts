@@ -18,6 +18,10 @@ export const createTestDb = async (): Promise<TestDb> => {
   await admin.end();
   const url = withDatabase(adminUrl, name);
   const pool = new Pool({ connectionString: url, max: 12 });
+  // The database is force-dropped at the end of a file; a connection that was still busy then reports "terminating connection".
+  // That is expected teardown noise, not a failure, so it must not surface as an unhandled error event.
+  pool.on('error', () => undefined);
+  pool.on('connect', (client) => void client.on('error', () => undefined));
   return {
     pool,
     url,

@@ -9,7 +9,7 @@ export default defineConfig({
   workers: 3,
   retries: 0,
   reporter: [['list']],
-  use: { baseURL: process.env['E2E_BASE_URL'] ?? 'http://127.0.0.1:28080', trace: 'retain-on-failure', locale: 'en-US' },
+  use: { baseURL: process.env['E2E_BASE_URL'] ?? 'http://127.0.0.1:8080', trace: 'retain-on-failure', locale: 'en-US' },
   projects: [
     { name: 'main', testIgnore: /hold-expiry/, use: { browserName: 'chromium' } },
     // Moves the server clock for the whole stack, so it runs alone, after everything else.

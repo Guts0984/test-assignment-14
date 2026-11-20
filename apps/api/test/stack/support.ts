@@ -7,7 +7,7 @@ import type { Role } from '@ticketing/shared';
 import { signAccessToken } from '../../src/modules/auth/domain/tokens.js';
 
 /** Helpers for tests that drive the deployed compose stack from outside (nginx, published postgres, docker CLI). */
-export const STACK_URL = process.env['STACK_URL'] ?? 'http://127.0.0.1:28080';
+export const STACK_URL = process.env['STACK_URL'] ?? 'http://127.0.0.1:8080';
 const REPO = resolve(__dirname, '../../../..');
 
 export const openPool = (max = 8): pg.Pool => new pg.Pool({ connectionString: hostReachableUrl(process.env['DATABASE_URL'] ?? ''), max });

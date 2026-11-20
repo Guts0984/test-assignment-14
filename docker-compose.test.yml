@@ -5,8 +5,8 @@ services:
     ports: ["127.0.0.1:3001:3001"]
     environment: &test-env
       TEST_CLOCK_ENABLED: "true"
-      API_PUBLIC_URL: http://127.0.0.1:28080
-      CORS_ORIGINS: http://127.0.0.1:28080
+      API_PUBLIC_URL: http://127.0.0.1:8080
+      CORS_ORIGINS: http://127.0.0.1:8080
       LOGIN_THROTTLE_IP_MAX: "100000"
       LOGIN_THROTTLE_ACCOUNT_IP_MAX: "100000"
       # nginx runs on the host network in this profile, so containers cannot resolve it by name: talk to the stub directly.

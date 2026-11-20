@@ -48,7 +48,6 @@ jobs:
         run: pnpm test:int
 
   e2e:
-    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

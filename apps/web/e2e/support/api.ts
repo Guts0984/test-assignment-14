@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-export const BASE = process.env['E2E_BASE_URL'] ?? 'http://127.0.0.1:28080';
-export const API_1 = process.env['E2E_API_1_URL'] ?? 'http://127.0.0.1:28081';
-export const API_2 = process.env['E2E_API_2_URL'] ?? 'http://127.0.0.1:28082';
+export const BASE = process.env['E2E_BASE_URL'] ?? 'http://127.0.0.1:8080';
+export const API_1 = process.env['E2E_API_1_URL'] ?? 'http://127.0.0.1:8081';
+export const API_2 = process.env['E2E_API_2_URL'] ?? 'http://127.0.0.1:8082';
 export const SEED_PASSWORD = process.env['SEED_USER_PASSWORD'] ?? '';
 
 export interface Session {

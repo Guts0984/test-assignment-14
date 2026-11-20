@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { client, flood } from '../attacker/index.js';
 
 /** Runs against the deployed compose stack (nginx in front of two api copies). Start it with `pnpm stack:up`. */
-const base = process.env['STACK_URL'] ?? 'http://127.0.0.1:28080';
+const base = process.env['STACK_URL'] ?? 'http://127.0.0.1:8080';
 const stubKey = process.env['STUB_API_KEY'] ?? '';
 
 describe('deployed stack: nginx + two api copies', () => {

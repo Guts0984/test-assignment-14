@@ -1,8 +1,15 @@
 name: ticketing
 
-x-api: &api
-  build: { context: ., target: api }
+# One image (see Dockerfile) serves every app service; only the first service builds it.
+x-app: &app
+  image: ticketing-app:latest
+  pull_policy: never
   env_file: .env
+
+x-api: &api
+  <<: *app
+  working_dir: /repo/apps/api
+  command: ["node", "dist/main.js"]
   depends_on:
     migrate: { condition: service_completed_successfully }
     redis: { condition: service_healthy }
@@ -43,14 +50,17 @@ services:
 
   # One-shot: applies migrations, then the seed (idempotent, advisory-locked). Nothing else to do by hand.
   migrate:
-    build: { context: ., target: migrate }
-    env_file: .env
+    <<: *app
+    working_dir: /repo/apps/api
+    command: ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/seed/main.js"]
+    build: { context: ., dockerfile: Dockerfile }
     depends_on: { postgres: { condition: service_healthy } }
     restart: "no"
 
   mailstub:
-    build: { context: ., target: mailstub }
-    env_file: .env
+    <<: *app
+    working_dir: /repo/infra/mailstub
+    command: ["node", "dist/main.js"]
     ports: ["127.0.0.1:${MAILSTUB_PUBLISH_PORT:-8025}:8025"]
 
   api-1:
@@ -61,8 +71,9 @@ services:
     environment: { API_INSTANCE_ID: api-2 }
 
   worker:
-    build: { context: ., target: worker }
-    env_file: .env
+    <<: *app
+    working_dir: /repo/apps/worker
+    command: ["node", "dist/main.js"]
     environment: { WORKER_INSTANCE_ID: worker-1 }
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -71,8 +82,9 @@ services:
       mailstub: { condition: service_started }
 
   web:
-    build: { context: ., target: web }
-    env_file: .env
+    <<: *app
+    working_dir: /repo/apps/web
+    command: ["pnpm", "exec", "next", "start", "-p", "3000"]
     depends_on: { api-1: { condition: service_healthy } }
 
   nginx:
