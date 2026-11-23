@@ -94,6 +94,48 @@ describe('payout 3 days after the event (acceptance: payout = sales - refunds - 
     await expectLedgerClean(tdb.pool);
   });
 
+  it('waits while a refund is owed (rejected by the provider) and pays out only after it is settled, net of it', async () => {
+    const bulk = await bulkPaidOrders(tdb.pool, 3, 1); // 3 x 1000 UAH
+    const w = bulk.world;
+    const { createRefund, applyRefundFailed, applyRefundSucceeded, retryRefund } = await import('@ticketing/platform');
+    const item = (await q(`SELECT id FROM order_items WHERE order_id = $1`, [bulk.orderIds[0]]))[0]?.['id'] as string;
+    const tx = async <T>(fn: (c: import('pg').PoolClient) => Promise<T>): Promise<T> => {
+      const c = await tdb.pool.connect();
+      try {
+        await c.query('BEGIN');
+        const out = await fn(c);
+        await c.query('COMMIT');
+        return out;
+      } finally {
+        c.release();
+      }
+    };
+    const refundId = await tx(async (c) => {
+      const id = await createRefund(c, { orderId: bulk.orderIds[0] as string, kind: 'user', reason: null, requestedBy: bulk.userIds[0] as string, releaseTickets: true, items: [{ itemId: item, price: 100_000, fee: 0 }] });
+      await c.query(`UPDATE tasks SET status = 'done' WHERE dedupe_key = $1`, [`refund:${id}`]);
+      await applyRefundFailed(c, id); // the provider said no: the buyer is still owed 1000 UAH
+      return id;
+    });
+    const starts = (await q(`SELECT starts_at FROM events WHERE id = $1`, [w.eventId]))[0]?.['starts_at'] as Date;
+    const payoutKey = `payout:${w.eventId}:${starts.getTime()}`;
+    await q(`INSERT INTO tasks (kind, dedupe_key, payload, run_at) VALUES ('payout', $1, $2::jsonb, app_now())`, [payoutKey, JSON.stringify({ eventId: w.eventId, startsAtMs: starts.getTime() })]);
+    await setClockOffset(tdb.pool, 33 * 86_400_000);
+    // the payout task ran and chose to wait (it was rescheduled, not finished)
+    await waitFor(async () => Number((await q(`SELECT attempts FROM tasks WHERE dedupe_key = $1`, [payoutKey]))[0]?.['attempts'] ?? 0) >= 1, 15_000);
+    expect((await q(`SELECT COUNT(*)::int AS n FROM payouts WHERE event_id = $1`, [w.eventId]))[0]).toMatchObject({ n: 0 });
+    expect((await q(`SELECT status::text AS s FROM tasks WHERE dedupe_key = $1`, [payoutKey]))[0]?.['s']).not.toBe('done');
+
+    // finance retries and the provider accepts this time
+    expect(await tx((c) => retryRefund(c, refundId, w.organizerId))).toBe('retried');
+    await tx(async (c) => applyRefundSucceeded(c, refundId, 'ref_retry'));
+    await q(`UPDATE tasks SET run_at = app_now() WHERE dedupe_key = $1`, [payoutKey]); // skip the 30 s wait
+    await waitFor(async () => (await q(`SELECT status::text AS s FROM events WHERE id = $1`, [w.eventId]))[0]?.['s'] === 'paid_out', 25_000);
+    const p = (await q(`SELECT sales::int, refunds::int, commission::int, amount::int FROM payouts WHERE event_id = $1`, [w.eventId]))[0];
+    expect(p).toMatchObject({ sales: 300_000, refunds: 100_000, commission: 16_000, amount: 184_000 });
+    expect(await tx((c) => retryRefund(c, refundId, w.organizerId))).toBe('paid_out'); // nothing can be retried into a paid-out balance
+    await expectLedgerClean(tdb.pool);
+  }, 60_000);
+
   it('a payout task for the old date does nothing after a reschedule, and a cancelled event is never paid out', async () => {
     const w = await createWorld(tdb.pool, { seats: 3 });
     await q(`INSERT INTO tasks (kind, dedupe_key, payload, run_at) VALUES ('payout', $1, $2::jsonb, app_now())`, [`payout:${w.eventId}:1`, JSON.stringify({ eventId: w.eventId, startsAtMs: 1 })]);

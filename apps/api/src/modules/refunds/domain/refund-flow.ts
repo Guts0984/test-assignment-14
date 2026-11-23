@@ -190,7 +190,9 @@ export const failedRefunds = async (pool: Pool) => {
 /** Finance retries a refund the provider rejected. Only a failed refund can be retried, so a double click is harmless. */
 export const retryFailedRefund = async (pool: Pool, refundId: string, actorId: string) =>
   withTxRetry(pool, async (tx) => {
-    if (!(await retryRefund(tx, refundId, actorId))) {
+    const outcome = await retryRefund(tx, refundId, actorId);
+    if (outcome === 'paid_out') return err(appError('CONFLICT', 'The event was already paid out; settle this refund outside the payout', { reason: 'paid_out' }));
+    if (outcome === 'not_failed') {
       const exists = (await tx.query(`SELECT 1 FROM refunds WHERE id = $1`, [refundId])).rowCount === 1;
       return exists ? err(appError('CONFLICT', 'Only a failed refund can be retried')) : err(appError('NOT_FOUND', 'Refund not found'));
     }

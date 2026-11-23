@@ -29,6 +29,7 @@ export type { LockedOrder } from './payments/orders.js';
 export { applyPaymentFailed, applyPaymentSucceeded } from './payments/confirm.js';
 export type { ConfirmOutcome } from './payments/confirm.js';
 export { applyRefundFailed, applyRefundSucceeded, createRefund, retryRefund } from './payments/refund-core.js';
+export type { RetryOutcome } from './payments/refund-core.js';
 export type { NewRefund, RefundItemInput } from './payments/refund-core.js';
 export { executeRefund } from './payments/refund-exec.js';
 export type { RefundExecOutcome } from './payments/refund-exec.js';

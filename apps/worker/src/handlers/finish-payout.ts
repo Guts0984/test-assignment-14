@@ -1,5 +1,5 @@
 import { RULES, payoutAmounts } from '@ticketing/shared';
-import { enqueue, type TaskHandler, withTxRetry } from '@ticketing/platform';
+import { enqueue, lockEvent, type TaskHandler, withTxRetry } from '@ticketing/platform';
 import { payloadString, type HandlerDeps } from './deps.js';
 
 const startsMatch = (task: { payload: Readonly<Record<string, unknown>> }, startsAt: Date): boolean => Number(task.payload['startsAtMs']) === startsAt.getTime();
@@ -16,7 +16,8 @@ export const eventFinish = (d: HandlerDeps): TaskHandler => async (task) => {
 
 /**
  * Pays the organizer 3 days after the event: sales - refunds - 8% commission (rounded down, in the organizer's favour).
- * Waits while refunds are still in flight. One payout row per event (unique), one ledger posting per payout.
+ * Waits while any refund of the event is unsettled: in flight, or rejected by the provider and still owed to the buyer (finance
+ * retries it). One payout row per event (unique), one ledger posting per payout.
  */
 export const payout = (d: HandlerDeps): TaskHandler => async (task) => {
   const eventId = payloadString(task, 'eventId');
@@ -27,9 +28,11 @@ export const payout = (d: HandlerDeps): TaskHandler => async (task) => {
   if (!ev || !startsMatch(task, ev.starts_at)) return undefined;
   if (ev.status === 'cancelled' || ev.status === 'paid_out' || ev.status === 'draft') return undefined;
   if (ev.due_ms > 0) return { again: Math.ceil(ev.due_ms) + 50 };
-  const open = await d.pool.query(`SELECT 1 FROM refunds r JOIN orders o ON o.id = r.order_id WHERE o.event_id = $1 AND r.status IN ('requested', 'pending') LIMIT 1`, [eventId]);
-  if (open.rowCount === 1) return { again: 30_000 };
-  await withTxRetry(d.pool, async (tx) => {
+  const outcome = await withTxRetry(d.pool, async (tx): Promise<'wait' | 'done'> => {
+    // Exclusive event lock: every refund (new or retried) takes it shared, so none can appear between this check and the payout.
+    await lockEvent(tx, eventId, false);
+    const open = await tx.query(`SELECT 1 FROM refunds r JOIN orders o ON o.id = r.order_id WHERE o.event_id = $1 AND r.status IN ('requested', 'pending', 'failed') LIMIT 1`, [eventId]);
+    if (open.rowCount === 1) return 'wait';
     await tx.query(`UPDATE events SET status = 'finished' WHERE id = $1 AND status IN ('on_sale', 'sold_out', 'rescheduled')`, [eventId]);
     const totals = (await tx.query<{ sales: string; refunds: string }>(
       `SELECT COALESCE((SELECT SUM(i.price - i.discount) FROM order_items i JOIN orders o ON o.id = i.order_id JOIN payments p ON p.order_id = o.id AND p.status = 'succeeded' WHERE o.event_id = $1), 0)::text AS sales,
@@ -45,10 +48,11 @@ export const payout = (d: HandlerDeps): TaskHandler => async (task) => {
       [eventId, ev.organizer_id, sales, refunds, amounts.commission, amounts.payout],
     );
     const id = created.rows[0]?.id;
-    if (!id) return;
+    if (!id) return 'done';
     await tx.query(`SELECT post_payout($1)`, [id]);
     await tx.query(`UPDATE events SET status = 'paid_out' WHERE id = $1 AND status = 'finished'`, [eventId]);
     await enqueue(tx, 'email', `email:payout:${id}`, { template: 'payout', payoutId: id });
+    return 'done';
   });
-  return undefined;
+  return outcome === 'wait' ? { again: 30_000 } : undefined;
 };

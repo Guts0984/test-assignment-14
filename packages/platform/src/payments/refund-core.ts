@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { enqueue, history } from './orders.js';
+import { enqueue, history, lockEvent } from './orders.js';
 
 export interface RefundItemInput {
   readonly itemId: string;
@@ -90,16 +90,26 @@ export const applyRefundFailed = async (tx: PoolClient, refundId: string): Promi
   if (row) await history(tx, row.order_id, 'system', null, 'refund_failed', { refundId, amount: row.amount });
 };
 
-/** Finance sends a failed refund to the provider again, as a new attempt (new idempotency key). Only a failed refund can be retried. */
-export const retryRefund = async (tx: PoolClient, refundId: string, actorId: string): Promise<boolean> => {
+export type RetryOutcome = 'retried' | 'not_failed' | 'paid_out';
+
+/**
+ * Finance sends a failed refund to the provider again, as a new attempt (new idempotency key). Only a failed refund can be
+ * retried, and never once the event was paid out: that money would come out of a balance already paid to the organizer
+ * (the payout waits for failed refunds, so this only guards against data from before that rule).
+ */
+export const retryRefund = async (tx: PoolClient, refundId: string, actorId: string): Promise<RetryOutcome> => {
+  const target = (await tx.query<{ event_id: string }>(`SELECT o.event_id FROM refunds r JOIN orders o ON o.id = r.order_id WHERE r.id = $1`, [refundId])).rows[0];
+  if (!target) return 'not_failed';
+  await lockEvent(tx, target.event_id, true); // the payout takes it exclusively, so a retry and a payout never interleave
+  if ((await tx.query(`SELECT 1 FROM payouts WHERE event_id = $1`, [target.event_id])).rowCount === 1) return 'paid_out';
   const res = await tx.query<{ order_id: string; provider_attempt: number }>(
     `UPDATE refunds SET status = 'requested', provider_attempt = provider_attempt + 1, updated_at = app_now()
      WHERE id = $1 AND status = 'failed' RETURNING order_id, provider_attempt`,
     [refundId],
   );
   const row = res.rows[0];
-  if (!row) return false;
+  if (!row) return 'not_failed';
   await history(tx, row.order_id, 'finance', actorId, 'refund_retried', { refundId, attempt: row.provider_attempt });
   await enqueue(tx, 'refund_execute', `refund:${refundId}:retry:${row.provider_attempt}`, { refundId });
-  return true;
+  return 'retried';
 };
