@@ -47,6 +47,13 @@ describe('seed (small scale, same shape as the full one)', () => {
     expect(statuses).toEqual(expect.arrayContaining(['cancelled', 'draft', 'finished', 'on_sale', 'paid_out', 'rescheduled', 'sold_out']));
   });
 
+  it('every seeded payment and refund also exists at the payment provider, so seeded orders can be refunded', async () => {
+    expect(await scalar(`SELECT COUNT(*) AS n FROM payments WHERE provider_payment_id NOT LIKE 'pay\\_%'`)).toBe(0);
+    expect(await scalar(`SELECT COUNT(*) AS n FROM payments p WHERE p.status = 'succeeded' AND NOT EXISTS (SELECT 1 FROM stub_payments s WHERE s.id = p.provider_payment_id AND s.status = 'succeeded' AND s.amount = p.amount)`)).toBe(0);
+    expect(await scalar(`SELECT COUNT(*) AS n FROM refunds r WHERE r.status = 'succeeded' AND NOT EXISTS (SELECT 1 FROM stub_refunds s WHERE s.id = r.provider_refund_id AND s.amount = r.amount)`)).toBe(0);
+    expect(await scalar(`SELECT COUNT(*) AS n FROM payments`)).toBeGreaterThan(0);
+  });
+
   it('ledger is balanced, balances equal entry sums, rollups equal raw data', async () => {
     await expectLedgerClean(tdb.pool);
     const r = await tdb.pool.query(

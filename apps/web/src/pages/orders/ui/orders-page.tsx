@@ -5,7 +5,7 @@ import { Link } from '@/shared/i18n';
 import { formatDateTime, formatMoney, type AppLocale } from '@/shared/lib/format';
 import { useSession } from '@/shared/lib/session';
 import { Alert, Card, Spinner } from '@/shared/ui';
-import { OrderStatusBadge, useMyOrders } from '@/entities/order';
+import { OrderStatusBadge, RefundStateBadge, useMyOrders } from '@/entities/order';
 
 export const OrdersPage = () => {
   const t = useTranslations('order');
@@ -28,6 +28,7 @@ export const OrdersPage = () => {
               <span>{t('ticketCount', { count: o.items.length })}</span>
               <span>{formatMoney(o.total, locale)}</span>
               <OrderStatusBadge status={o.status} />
+              <RefundStateBadge state={o.refundState} />
             </Card>
           </li>
         ))}

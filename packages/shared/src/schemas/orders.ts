@@ -30,6 +30,8 @@ export const orderSchema = z.object({
   id: uuidSchema,
   eventId: uuidSchema,
   status: z.enum(ORDER_STATUSES),
+  /** Where the money of the order's refunds is: none requested, on its way, all returned, or a refund the provider rejected. */
+  refundState: z.enum(['none', 'in_progress', 'completed', 'failed']),
   holdExpiresAt: z.string().nullable(),
   serverTime: z.string(),
   promoCode: z.string().nullable(),

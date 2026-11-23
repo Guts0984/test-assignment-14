@@ -1,7 +1,7 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import {
-  cancellationProgressSchema, checkoutResponseSchema, financeRefundRequestSchema, financeReportSchema, jobListSchema, organizerSalesQuerySchema,
+  cancellationProgressSchema, checkoutResponseSchema, financeRefundListSchema, financeRefundRequestSchema, financeReportSchema, jobListSchema, organizerSalesQuerySchema,
   organizerSalesSchema, periodQuerySchema, queueViewSchema, reconciliationSchema, refundQuoteSchema, refundRequestSchema, refundSchema,
   rescheduleRequestSchema, scanRequestSchema, scanResultSchema, scanStatsSchema, scannerEventListSchema, staffRequestSchema, ticketListSchema,
   ticketSchema, transferRequestSchema, uuidSchema, waitlistRequestSchema, waitlistStatusSchema,
@@ -13,6 +13,7 @@ export class FinanceRefundRequestDto extends createZodDto(financeRefundRequestSc
 export class RefundQuoteDto extends createZodDto(refundQuoteSchema) {}
 export class RefundDto extends createZodDto(refundSchema) {}
 export class RefundListDto extends createZodDto(z.object({ items: z.array(refundSchema) })) {}
+export class FinanceRefundListDto extends createZodDto(financeRefundListSchema) {}
 export class TicketDto extends createZodDto(ticketSchema) {}
 export class TicketListDto extends createZodDto(ticketListSchema) {}
 export class TransferRequestDto extends createZodDto(transferRequestSchema) {}

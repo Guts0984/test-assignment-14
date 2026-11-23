@@ -94,11 +94,13 @@
   "finance": {
     "allBalanced": "Усе сходиться.",
     "apply": "Показати",
+    "attemptN": "спроба {n}",
     "attempts": "Спроби",
     "balanceMismatches": "Розбіжностей рахунків: {count}",
     "byOrganizer": "За організаторами",
     "commission": "Комісія",
     "error": "Помилка",
+    "failedRefunds": "Невдалі повернення",
     "filter": {
       "all": "Невдалі й завислі",
       "failed": "Невдалі",
@@ -114,8 +116,10 @@
     "manualRefund": "Ручне повернення",
     "mismatch": "Є розбіжності.",
     "noDifferences": "Розбіжностей немає.",
+    "noFailedRefunds": "Невдалих повернень немає.",
     "noJobs": "Невдалих або завислих задач немає.",
     "open": "відкрита",
+    "order": "замовлення",
     "orderId": "Ідентифікатор замовлення",
     "organizer": "Організатор",
     "payouts": "Виплати",
@@ -129,6 +133,7 @@
     "refunds": "Повернення",
     "resolved": "виправлено",
     "restart": "Перезапустити",
+    "retryRefund": "Повторити повернення",
     "rollupMismatches": "Розбіжностей звітів: {count}",
     "runReconciliation": "Звірити з платіжним провайдером",
     "sales": "Продажі",
@@ -183,7 +188,9 @@
       "payment_created": "Платіж створено",
       "promo_applied": "Промокод застосовано",
       "promo_removed": "Промокод прибрано",
+      "refund_failed": "Платіжний провайдер відхилив повернення",
       "refund_requested": "Запит на повернення",
+      "refund_retried": "Повернення надіслано повторно",
       "refund_succeeded": "Повернення виконано",
       "ticket_transferred": "Квиток передано",
       "tickets_issued": "Квитки випущено"
@@ -205,7 +212,18 @@
     "promoRemove": "Прибрати",
     "promoTitle": "Промокод",
     "providerBusy": "Платіжний провайдер зайнятий. Спробуйте за мить.",
+    "refundBadge": {
+      "failed": "Повернення не пройшло",
+      "in_progress": "Повернення в обробці"
+    },
+    "refundState": {
+      "failed": "{amount}: повернення ще не пройшло. Фінансовий відділ уже знає про це й завершить його.",
+      "pending": "{amount}: повернення в обробці",
+      "requested": "{amount}: повернення в обробці",
+      "succeeded": "{amount}: повернено на вашу картку"
+    },
     "refundedBanner": "Замовлення повернено.",
+    "refunds": "Повернення",
     "release": "Відмовитися від утримання",
     "remove": "Прибрати",
     "removeItem": "Прибрати {item}",

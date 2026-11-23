@@ -94,11 +94,13 @@
   "finance": {
     "allBalanced": "Wszystko się zgadza.",
     "apply": "Pokaż",
+    "attemptN": "próba {n}",
     "attempts": "Próby",
     "balanceMismatches": "Rozbieżności kont: {count}",
     "byOrganizer": "Według organizatorów",
     "commission": "Prowizja",
     "error": "Błąd",
+    "failedRefunds": "Nieudane zwroty",
     "filter": {
       "all": "Nieudane i zawieszone",
       "failed": "Nieudane",
@@ -114,8 +116,10 @@
     "manualRefund": "Zwrot ręczny",
     "mismatch": "Są rozbieżności.",
     "noDifferences": "Brak różnic.",
+    "noFailedRefunds": "Brak nieudanych zwrotów.",
     "noJobs": "Brak nieudanych lub zawieszonych zadań.",
     "open": "otwarta",
+    "order": "zamówienie",
     "orderId": "Identyfikator zamówienia",
     "organizer": "Organizator",
     "payouts": "Wypłaty",
@@ -129,6 +133,7 @@
     "refunds": "Zwroty",
     "resolved": "naprawione",
     "restart": "Uruchom ponownie",
+    "retryRefund": "Ponów zwrot",
     "rollupMismatches": "Rozbieżności raportów: {count}",
     "runReconciliation": "Porównaj z operatorem płatności",
     "sales": "Sprzedaż",
@@ -183,7 +188,9 @@
       "payment_created": "Płatność utworzona",
       "promo_applied": "Kod zastosowany",
       "promo_removed": "Kod usunięty",
+      "refund_failed": "Operator płatności odrzucił zwrot",
       "refund_requested": "Zlecono zwrot",
+      "refund_retried": "Zwrot wysłany ponownie",
       "refund_succeeded": "Zwrot zakończony",
       "ticket_transferred": "Bilet przekazany",
       "tickets_issued": "Bilety wystawione"
@@ -205,7 +212,18 @@
     "promoRemove": "Usuń",
     "promoTitle": "Kod promocyjny",
     "providerBusy": "Operator płatności jest zajęty. Spróbuj za chwilę.",
+    "refundBadge": {
+      "failed": "Zwrot nieudany",
+      "in_progress": "Zwrot w toku"
+    },
+    "refundState": {
+      "failed": "{amount}: zwrot jeszcze nie przeszedł. Dział finansów został powiadomiony i go dokończy.",
+      "pending": "{amount}: zwrot w toku",
+      "requested": "{amount}: zwrot w toku",
+      "succeeded": "{amount}: zwrócono na Twoją kartę"
+    },
     "refundedBanner": "To zamówienie zostało zwrócone.",
+    "refunds": "Zwroty",
     "release": "Zrezygnuj z rezerwacji",
     "remove": "Usuń",
     "removeItem": "Usuń {item}",

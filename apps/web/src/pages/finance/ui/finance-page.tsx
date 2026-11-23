@@ -8,7 +8,7 @@ import { Link, usePathname, useRouter } from '@/shared/i18n';
 import { formatDateTime, formatMoney, type AppLocale } from '@/shared/lib/format';
 import { useSession } from '@/shared/lib/session';
 import { Alert, Badge, Button, Card, Spinner, TextField } from '@/shared/ui';
-import { useFinanceReport, useJobs, useManualRefund, useReconciliation, useRestartJob, useRunReconciliation } from '@/entities/finance';
+import { useFailedRefunds, useFinanceReport, useJobs, useManualRefund, useRetryRefund, useReconciliation, useRestartJob, useRunReconciliation } from '@/entities/finance';
 
 const TABS = ['report', 'reconciliation', 'jobs', 'refund'] as const;
 type Tab = (typeof TABS)[number];
@@ -129,7 +129,43 @@ const JobsTab = () => {
   );
 };
 
-const RefundTab = () => {
+const FailedRefunds = () => {
+  const t = useTranslations('finance');
+  const locale = useLocale() as AppLocale;
+  const list = useFailedRefunds();
+  const retry = useRetryRefund();
+  if (list.isLoading) return <Spinner label={t('loading')} />;
+  const items = list.data?.items ?? [];
+  return (
+    <section aria-label={t('failedRefunds')} className="flex flex-col gap-2" data-testid="failed-refunds">
+      <h2 className="font-semibold">{t('failedRefunds')}</h2>
+      {items.length === 0 ? <p className="text-sm text-slate-600">{t('noFailedRefunds')}</p> : null}
+      <ul className="flex flex-col gap-2">
+        {items.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-red-200 p-2 text-sm" data-testid="failed-refund">
+            <span>
+              {r.eventTitle} · {formatMoney(r.amount, locale)} · {t('order')} <code>{r.orderId}</code> · {formatDateTime(r.updatedAt, locale)}
+              {r.attempt > 0 ? ` · ${t('attemptN', { n: r.attempt + 1 })}` : ''}
+            </span>
+            <Button variant="secondary" busy={retry.isPending && retry.variables === r.id} onClick={() => retry.mutate(r.id)} data-testid="retry-refund">
+              {t('retryRefund')}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {retry.error ? <Alert tone="error">{toProblem(retry.error).message}</Alert> : null}
+    </section>
+  );
+};
+
+const RefundTab = () => (
+  <div className="flex flex-col gap-6">
+    <FailedRefunds />
+    <ManualRefund />
+  </div>
+);
+
+const ManualRefund = () => {
   const t = useTranslations('finance');
   const refund = useManualRefund();
   const key = useRef(crypto.randomUUID());

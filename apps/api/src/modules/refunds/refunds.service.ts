@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
 import type { RealtimePublisher } from '@ticketing/platform';
 import { PG_POOL, RT_PUBLISHER } from '../../infra/tokens.js';
-import { financeRefund, listRefunds, refundQuote, userRefund } from './domain/refund-flow.js';
+import { failedRefunds, financeRefund, holderRefund, retryFailedRefund, listRefunds, refundQuote, ticketRefundQuote, userRefund } from './domain/refund-flow.js';
 
 @Injectable()
 export class RefundsService {
@@ -20,9 +20,28 @@ export class RefundsService {
     return result;
   }
 
+  ticketQuote = (ticketId: string, userId: string) => ticketRefundQuote(this.pool, ticketId, userId);
+
+  async ticketRefund(input: { ticketId: string; userId: string; key: string }) {
+    const result = await holderRefund(this.pool, input);
+    if (result.ok) {
+      await this.announce(String(result.value['orderId']));
+      this.rt.toUser(input.userId, 'order.updated', { orderId: result.value['orderId'] }); // the holder may not be the buyer
+    }
+    return result;
+  }
+
   async financeRefund(input: { orderId: string; actorId: string; reason: string; itemIds: readonly string[] | undefined; key: string }) {
     const result = await financeRefund(this.pool, input);
     if (result.ok) await this.announce(input.orderId);
+    return result;
+  }
+
+  failed = () => failedRefunds(this.pool);
+
+  async retry(refundId: string, actorId: string) {
+    const result = await retryFailedRefund(this.pool, refundId, actorId);
+    if (result.ok) await this.announce(String(result.value['orderId']));
     return result;
   }
 

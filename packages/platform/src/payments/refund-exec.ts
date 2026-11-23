@@ -16,8 +16,8 @@ export type RefundExecOutcome =
  * Provider unavailability is thrown so the task framework retries with backoff and finally shows the task as failed.
  */
 export const executeRefund = async (pool: Pool, provider: ProviderClient, refundId: string): Promise<RefundExecOutcome> => {
-  const row = (await pool.query<{ status: string; amount: number; provider_payment_id: string | null }>(
-    `SELECT r.status, r.amount, p.provider_payment_id FROM refunds r
+  const row = (await pool.query<{ status: string; amount: number; provider_payment_id: string | null; provider_attempt: number }>(
+    `SELECT r.status, r.amount, p.provider_payment_id, r.provider_attempt FROM refunds r
      JOIN payments p ON p.order_id = r.order_id AND p.status = 'succeeded' WHERE r.id = $1`,
     [refundId],
   )).rows[0];
@@ -25,7 +25,7 @@ export const executeRefund = async (pool: Pool, provider: ProviderClient, refund
   if (row.status === 'succeeded' || row.status === 'failed') return { kind: 'done' };
   if (!row.provider_payment_id) throw new Error(`payment of refund ${refundId} has no provider id`);
 
-  const result = await provider.createRefund({ paymentId: row.provider_payment_id, amount: row.amount, reference: refundId, key: refundId });
+  const result = await provider.createRefund({ paymentId: row.provider_payment_id, amount: row.amount, reference: refundId, key: row.provider_attempt === 0 ? refundId : `${refundId}-retry-${row.provider_attempt}` });
   if (!result.ok) {
     if (result.kind === 'rate_limited') return { kind: 'again', afterMs: result.retryAfterMs };
     if (result.kind === 'unavailable') throw new Error(`provider unavailable: ${result.message}`);

@@ -281,6 +281,7 @@ export type OrderDto = {
     id: string;
     eventId: string;
     status: 'holding' | 'awaiting_payment' | 'paid' | 'expired' | 'partially_refunded' | 'refunded';
+    refundState: 'none' | 'in_progress' | 'completed' | 'failed';
     holdExpiresAt: string | null;
     serverTime: string;
     promoCode: string | null;
@@ -304,6 +305,7 @@ export type OrderListDto = {
         id: string;
         eventId: string;
         status: 'holding' | 'awaiting_payment' | 'paid' | 'expired' | 'partially_refunded' | 'refunded';
+        refundState: 'none' | 'in_progress' | 'completed' | 'failed';
         holdExpiresAt: string | null;
         serverTime: string;
         promoCode: string | null;
@@ -372,6 +374,7 @@ export type CheckoutResponseDto = {
         id: string;
         eventId: string;
         status: 'holding' | 'awaiting_payment' | 'paid' | 'expired' | 'partially_refunded' | 'refunded';
+        refundState: 'none' | 'in_progress' | 'completed' | 'failed';
         holdExpiresAt: string | null;
         serverTime: string;
         promoCode: string | null;
@@ -438,6 +441,23 @@ export type RefundDto = {
     feeAmount: number;
     reason: string | null;
     createdAt: string;
+};
+
+export type FinanceRefundListDto = {
+    items: Array<{
+        id: string;
+        orderId: string;
+        kind: 'user' | 'finance' | 'event_cancelled' | 'late_payment';
+        status: 'requested' | 'pending' | 'succeeded' | 'failed';
+        amount: number;
+        priceAmount: number;
+        feeAmount: number;
+        reason: string | null;
+        createdAt: string;
+        attempt: number;
+        updatedAt: string;
+        eventTitle: string;
+    }>;
 };
 
 export type FinanceRefundRequestDto = {
@@ -2549,6 +2569,215 @@ export type RefundsControllerRefundResponses = {
 };
 
 export type RefundsControllerRefundResponse = RefundsControllerRefundResponses[keyof RefundsControllerRefundResponses];
+
+export type RefundsControllerTicketQuoteData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/tickets/{id}/refund-quote';
+};
+
+export type RefundsControllerTicketQuoteErrors = {
+    /**
+     * Validation failed (code VALIDATION_FAILED / IDEMPOTENCY_KEY_REQUIRED)
+     */
+    400: ErrorResponseDto;
+    /**
+     * Missing or invalid credentials (code UNAUTHENTICATED)
+     */
+    401: ErrorResponseDto;
+    /**
+     * Not allowed for this role or resource (code FORBIDDEN)
+     */
+    403: ErrorResponseDto;
+    /**
+     * Not found (code NOT_FOUND)
+     */
+    404: ErrorResponseDto;
+    /**
+     * Conflict with current state (codes CONFLICT, SEAT_UNAVAILABLE, LIMIT_EXCEEDED, ...)
+     */
+    409: ErrorResponseDto;
+    /**
+     * Business rule violated (codes PROMO_INVALID, REFUND_NOT_ALLOWED, ...)
+     */
+    422: ErrorResponseDto;
+    /**
+     * Rate limited (code RATE_LIMITED, Retry-After header)
+     */
+    429: ErrorResponseDto;
+    /**
+     * Unexpected failure (code INTERNAL)
+     */
+    500: ErrorResponseDto;
+};
+
+export type RefundsControllerTicketQuoteError = RefundsControllerTicketQuoteErrors[keyof RefundsControllerTicketQuoteErrors];
+
+export type RefundsControllerTicketQuoteResponses = {
+    200: RefundQuoteDto;
+};
+
+export type RefundsControllerTicketQuoteResponse = RefundsControllerTicketQuoteResponses[keyof RefundsControllerTicketQuoteResponses];
+
+export type RefundsControllerTicketRefundData = {
+    body?: never;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/tickets/{id}/refund';
+};
+
+export type RefundsControllerTicketRefundErrors = {
+    /**
+     * Validation failed (code VALIDATION_FAILED / IDEMPOTENCY_KEY_REQUIRED)
+     */
+    400: ErrorResponseDto;
+    /**
+     * Missing or invalid credentials (code UNAUTHENTICATED)
+     */
+    401: ErrorResponseDto;
+    /**
+     * Not allowed for this role or resource (code FORBIDDEN)
+     */
+    403: ErrorResponseDto;
+    /**
+     * Not found (code NOT_FOUND)
+     */
+    404: ErrorResponseDto;
+    /**
+     * Conflict with current state (codes CONFLICT, SEAT_UNAVAILABLE, LIMIT_EXCEEDED, ...)
+     */
+    409: ErrorResponseDto;
+    /**
+     * Business rule violated (codes PROMO_INVALID, REFUND_NOT_ALLOWED, ...)
+     */
+    422: ErrorResponseDto;
+    /**
+     * Rate limited (code RATE_LIMITED, Retry-After header)
+     */
+    429: ErrorResponseDto;
+    /**
+     * Unexpected failure (code INTERNAL)
+     */
+    500: ErrorResponseDto;
+};
+
+export type RefundsControllerTicketRefundError = RefundsControllerTicketRefundErrors[keyof RefundsControllerTicketRefundErrors];
+
+export type RefundsControllerTicketRefundResponses = {
+    200: RefundDto;
+};
+
+export type RefundsControllerTicketRefundResponse = RefundsControllerTicketRefundResponses[keyof RefundsControllerTicketRefundResponses];
+
+export type RefundsControllerFailedData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/finance/refunds/failed';
+};
+
+export type RefundsControllerFailedErrors = {
+    /**
+     * Validation failed (code VALIDATION_FAILED / IDEMPOTENCY_KEY_REQUIRED)
+     */
+    400: ErrorResponseDto;
+    /**
+     * Missing or invalid credentials (code UNAUTHENTICATED)
+     */
+    401: ErrorResponseDto;
+    /**
+     * Not allowed for this role or resource (code FORBIDDEN)
+     */
+    403: ErrorResponseDto;
+    /**
+     * Not found (code NOT_FOUND)
+     */
+    404: ErrorResponseDto;
+    /**
+     * Conflict with current state (codes CONFLICT, SEAT_UNAVAILABLE, LIMIT_EXCEEDED, ...)
+     */
+    409: ErrorResponseDto;
+    /**
+     * Business rule violated (codes PROMO_INVALID, REFUND_NOT_ALLOWED, ...)
+     */
+    422: ErrorResponseDto;
+    /**
+     * Rate limited (code RATE_LIMITED, Retry-After header)
+     */
+    429: ErrorResponseDto;
+    /**
+     * Unexpected failure (code INTERNAL)
+     */
+    500: ErrorResponseDto;
+};
+
+export type RefundsControllerFailedError = RefundsControllerFailedErrors[keyof RefundsControllerFailedErrors];
+
+export type RefundsControllerFailedResponses = {
+    200: FinanceRefundListDto;
+};
+
+export type RefundsControllerFailedResponse = RefundsControllerFailedResponses[keyof RefundsControllerFailedResponses];
+
+export type RefundsControllerRetryData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/finance/refunds/{id}/retry';
+};
+
+export type RefundsControllerRetryErrors = {
+    /**
+     * Validation failed (code VALIDATION_FAILED / IDEMPOTENCY_KEY_REQUIRED)
+     */
+    400: ErrorResponseDto;
+    /**
+     * Missing or invalid credentials (code UNAUTHENTICATED)
+     */
+    401: ErrorResponseDto;
+    /**
+     * Not allowed for this role or resource (code FORBIDDEN)
+     */
+    403: ErrorResponseDto;
+    /**
+     * Not found (code NOT_FOUND)
+     */
+    404: ErrorResponseDto;
+    /**
+     * Conflict with current state (codes CONFLICT, SEAT_UNAVAILABLE, LIMIT_EXCEEDED, ...)
+     */
+    409: ErrorResponseDto;
+    /**
+     * Business rule violated (codes PROMO_INVALID, REFUND_NOT_ALLOWED, ...)
+     */
+    422: ErrorResponseDto;
+    /**
+     * Rate limited (code RATE_LIMITED, Retry-After header)
+     */
+    429: ErrorResponseDto;
+    /**
+     * Unexpected failure (code INTERNAL)
+     */
+    500: ErrorResponseDto;
+};
+
+export type RefundsControllerRetryError = RefundsControllerRetryErrors[keyof RefundsControllerRetryErrors];
+
+export type RefundsControllerRetryResponses = {
+    200: RefundDto;
+};
+
+export type RefundsControllerRetryResponse = RefundsControllerRetryResponses[keyof RefundsControllerRetryResponses];
 
 export type RefundsControllerFinanceRefundData = {
     body: FinanceRefundRequestDto;

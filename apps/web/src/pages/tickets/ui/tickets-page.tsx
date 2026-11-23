@@ -12,7 +12,7 @@ import { Link } from '@/shared/i18n';
 import { formatDateTime, formatMoney, type AppLocale } from '@/shared/lib/format';
 import { useSession } from '@/shared/lib/session';
 import { Alert, Badge, Button, Card, Spinner, TextField } from '@/shared/ui';
-import { QrImage, useMyTickets, useRefund, useRefundQuote, useTransfer } from '@/entities/ticket';
+import { QrImage, useMyTickets, useTicketRefund, useTicketRefundQuote, useTransfer } from '@/entities/ticket';
 
 type TransferValues = z.infer<typeof transferRequestSchema>;
 
@@ -44,17 +44,17 @@ const TransferForm = ({ ticket, onDone }: { readonly ticket: TicketDto; readonly
 const RefundBox = ({ ticket, onDone }: { readonly ticket: TicketDto; readonly onDone: () => void }) => {
   const t = useTranslations('tickets');
   const locale = useLocale() as AppLocale;
-  const quote = useRefundQuote(ticket.orderId);
-  const refund = useRefund();
+  const quote = useTicketRefundQuote(ticket.id);
+  const refund = useTicketRefund();
   const key = useRef(crypto.randomUUID());
-  const mine = quote.data?.items.find((i) => i.refundable);
+  const mine = quote.data?.items.find((i) => i.refundable); // the quote covers exactly this ticket
   const problem = refund.error ? toProblem(refund.error) : null;
   return (
     <div className="flex flex-col gap-2" data-testid="refund-box">
       {quote.isLoading ? <Spinner label={t('loading')} /> : mine ? <p className="text-sm">{t('refundAmount', { amount: formatMoney(mine.price + mine.fee, locale) })}</p> : <Alert tone="warning">{t('notRefundable')}</Alert>}
       {problem ? <Alert tone="error">{problem.message}</Alert> : null}
       <div className="flex gap-2">
-        {mine ? <Button variant="danger" busy={refund.isPending} onClick={() => refund.mutate({ orderId: ticket.orderId, itemIds: [mine.itemId], key: key.current }, { onSuccess: onDone })} data-testid="refund-confirm">{t('refundConfirm')}</Button> : null}
+        {mine ? <Button variant="danger" busy={refund.isPending} onClick={() => refund.mutate({ ticketId: ticket.id, key: key.current }, { onSuccess: onDone })} data-testid="refund-confirm">{t('refundConfirm')}</Button> : null}
         <Button variant="secondary" onClick={onDone}>{t('cancel')}</Button>
       </div>
     </div>

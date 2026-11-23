@@ -11,6 +11,13 @@ export const OrderStatusBadge = ({ status }: { readonly status: string }) => {
   return <Badge tone={status === 'paid' ? 'good' : status === 'expired' || status === 'refunded' ? 'bad' : 'warn'}>{t(status)}</Badge>;
 };
 
+/** Shown next to the order status while a refund is on its way or was rejected by the provider (money still owed). */
+export const RefundStateBadge = ({ state }: { readonly state: OrderDto['refundState'] }) => {
+  const t = useTranslations('order.refundBadge');
+  if (state !== 'in_progress' && state !== 'failed') return null;
+  return <Badge tone={state === 'failed' ? 'bad' : 'warn'} data-testid="refund-badge" data-state={state}>{t(state)}</Badge>;
+};
+
 export const HoldTimer = ({ expiresAt }: { readonly expiresAt: string | null }) => {
   const t = useTranslations('order');
   const left = useHoldRemaining(expiresAt);

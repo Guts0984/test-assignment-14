@@ -164,6 +164,94 @@ describe('refunds under concurrency (acceptance 9)', () => {
   });
 });
 
+describe('refunding by ticket, including transferred tickets', () => {
+  const ticketRefund = (user: TestUser, ticketId: string, key = idem()) => http.post(`/api/tickets/${ticketId}/refund`, undefined, { token: user.token, headers: { 'idempotency-key': key } });
+  const emailOf = async (u: TestUser) => ((await tdb.pool.query(`SELECT email FROM users WHERE id = $1`, [u.id])).rows[0] as { email: string }).email;
+
+  it('the recipient of a transferred ticket can return it; the money goes back to the original payment; the giver cannot revoke it', async () => {
+    const [alice, bob, eve] = (await createUsers(tdb.pool, api.env, 3)) as [TestUser, TestUser, TestUser];
+    const order = await buy(alice, 2);
+    const [given, kept] = (await myTickets(alice)).filter((t) => t.orderId === order.id);
+    expect((await http.post(`/api/tickets/${given?.id}/transfer`, { email: await emailOf(bob) }, { token: alice.token, headers: { 'idempotency-key': idem() } })).status).toBe(200);
+    const givenItem = (await q(`SELECT order_item_id AS i FROM tickets WHERE id = $1`, [given?.id]))[0]?.['i'] as string;
+
+    // the giver: neither the order refund nor the ticket refund can take it back
+    expect((await refund(alice, order.id, [givenItem])).json).toMatchObject({ error: { code: 'REFUND_NOT_ALLOWED', details: { reason: 'transferred' } } });
+    expect((await ticketRefund(alice, given?.id ?? '')).status).toBe(404);
+    expect((await ticketRefund(eve, given?.id ?? '')).status).toBe(404); // and nobody else either
+
+    // the holder
+    const quote = await http.get(`/api/tickets/${given?.id}/refund-quote`, { token: bob.token });
+    expect(quote.json).toMatchObject({ orderId: order.id, items: [{ itemId: givenItem, refundable: true, price: 100_000, fee: 0 }], total: 100_000 });
+    const key = idem();
+    const done = await ticketRefund(bob, given?.id ?? '', key);
+    expect(done.status).toBe(200);
+    expect(done.json).toMatchObject({ orderId: order.id, kind: 'user', amount: 100_000 });
+    expect((await ticketRefund(bob, given?.id ?? '', key)).json).toEqual(done.json); // a retry is the same refund
+    expect((await ticketRefund(bob, given?.id ?? '')).json).toMatchObject({ error: { code: 'REFUND_NOT_ALLOWED' } }); // a second refund is not
+    expect(await q(`SELECT ri.order_item_id AS i FROM refund_items ri JOIN refunds r ON r.id = ri.refund_id WHERE r.order_id = $1`, [order.id])).toEqual([{ i: givenItem }]);
+
+    await worker();
+    expect(await q(`SELECT status::text AS s FROM refunds WHERE order_id = $1`, [order.id])).toEqual([{ s: 'succeeded' }]);
+    expect((await myTickets(bob)).find((t) => t.id === given?.id)?.status).toBe('refunded');
+    expect((await myTickets(alice)).find((t) => t.id === kept?.id)?.status).toBe('valid');
+    expect(await q(`SELECT status::text AS s FROM orders WHERE id = $1`, [order.id])).toEqual([{ s: 'partially_refunded' }]);
+    await expectLedgerClean(tdb.pool);
+  });
+
+  it('refunding one ticket of a multi-ticket order returns exactly that ticket', async () => {
+    const buyer = await createUser(tdb.pool, api.env);
+    const order = await buy(buyer, 3);
+    const tickets = (await myTickets(buyer)).filter((t) => t.orderId === order.id);
+    const last = tickets[2];
+    expect((await ticketRefund(buyer, last?.id ?? '')).status).toBe(200);
+    const after = (await myTickets(buyer)).filter((t) => t.orderId === order.id);
+    expect(after.filter((t) => t.status === 'refunded').map((t) => t.id)).toEqual([last?.id]);
+  });
+});
+
+describe('a refund the payment provider rejects', () => {
+  it('stays visible as owed money: the order says failed, the ticket cannot be refunded twice, finance retries until it goes through once', async () => {
+    const buyer = await createUser(tdb.pool, api.env);
+    const order = await buy(buyer, 2);
+    const [ticket] = (await myTickets(buyer)).filter((t) => t.orderId === order.id);
+    const providerPayment = (await q(`SELECT provider_payment_id AS p FROM payments WHERE order_id = $1 AND status = 'succeeded'`, [order.id]))[0]?.['p'];
+    await q(`UPDATE stub_payments SET status = 'failed' WHERE id = $1`, [providerPayment]); // the provider will refuse any refund of it
+    const orderView = async () => (await http.get(`/api/orders/${order.id}`, { token: buyer.token })).json as { status: string; refundState: string };
+
+    const asked = await http.post(`/api/tickets/${ticket?.id}/refund`, undefined, { token: buyer.token, headers: { 'idempotency-key': idem() } });
+    expect(asked.status).toBe(200);
+    const refundId = (asked.json as { id: string }).id;
+    expect(await orderView()).toMatchObject({ status: 'partially_refunded', refundState: 'in_progress' });
+    await worker();
+    expect(await q(`SELECT status::text AS s, provider_attempt AS a FROM refunds WHERE id = $1`, [refundId])).toEqual([{ s: 'failed', a: 0 }]);
+    expect(await orderView()).toMatchObject({ refundState: 'failed' }); // never shown as done
+    expect((await http.post(`/api/tickets/${ticket?.id}/refund`, undefined, { token: buyer.token, headers: { 'idempotency-key': idem() } })).json).toMatchObject({ error: { code: 'REFUND_NOT_ALLOWED' } });
+    expect((await http.get('/api/finance/refunds/failed', { token: buyer.token })).status).toBe(403);
+    const listed = (await http.get('/api/finance/refunds/failed', { token: finance.token })).json as { items: { id: string; attempt: number }[] };
+    expect(listed.items).toContainEqual(expect.objectContaining({ id: refundId, attempt: 0 }));
+
+    // still rejected: a retry is a new attempt and fails again, visibly
+    expect((await http.post(`/api/finance/refunds/${refundId}/retry`, undefined, { token: buyer.token })).status).toBe(403);
+    expect((await http.post(`/api/finance/refunds/${refundId}/retry`, undefined, { token: finance.token })).json).toMatchObject({ id: refundId, status: 'requested' });
+    await worker();
+    expect(await q(`SELECT status::text AS s, provider_attempt AS a FROM refunds WHERE id = $1`, [refundId])).toEqual([{ s: 'failed', a: 1 }]);
+
+    // the provider accepts now
+    await q(`UPDATE stub_payments SET status = 'succeeded' WHERE id = $1`, [providerPayment]);
+    const [r1, r2] = await Promise.all([1, 2].map(() => http.post(`/api/finance/refunds/${refundId}/retry`, undefined, { token: finance.token })));
+    expect([r1?.status, r2?.status].sort()).toEqual([200, 409]); // a double click retries once
+    await worker();
+    expect(await q(`SELECT status::text AS s FROM refunds WHERE id = $1`, [refundId])).toEqual([{ s: 'succeeded' }]);
+    expect(await orderView()).toMatchObject({ refundState: 'completed' });
+    expect(await q(`SELECT COUNT(*)::int AS n FROM stub_refunds WHERE payment_id = $1 AND status = 'succeeded'`, [providerPayment])).toEqual([{ n: 1 }]);
+    expect((await http.post(`/api/finance/refunds/${refundId}/retry`, undefined, { token: finance.token })).status).toBe(409);
+    const history = (await http.get(`/api/orders/${order.id}/history`, { token: buyer.token })).json as { items: { type: string }[] };
+    expect(history.items.map((h) => h.type)).toEqual(expect.arrayContaining(['refund_failed', 'refund_retried', 'refund_succeeded']));
+    await expectLedgerClean(tdb.pool);
+  });
+});
+
 describe('transfer and entrance (acceptance 15, 16)', () => {
   const code = async (user: TestUser, orderId: string) => (await myTickets(user)).find((t) => t.orderId === orderId);
   const scan = (codeText: string, gate = '1', token = scanner.token, eventId = ev.eventId) => http.post(`/api/scanner/events/${eventId}/scan`, { code: codeText, gate }, { token });

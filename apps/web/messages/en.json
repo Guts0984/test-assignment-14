@@ -94,11 +94,13 @@
   "finance": {
     "allBalanced": "Everything balances.",
     "apply": "Show",
+    "attemptN": "attempt {n}",
     "attempts": "Attempts",
     "balanceMismatches": "Account mismatches: {count}",
     "byOrganizer": "By organizer",
     "commission": "Commission",
     "error": "Error",
+    "failedRefunds": "Failed refunds",
     "filter": {
       "all": "Failed and stuck",
       "failed": "Failed",
@@ -114,8 +116,10 @@
     "manualRefund": "Manual refund",
     "mismatch": "There are discrepancies.",
     "noDifferences": "No differences.",
+    "noFailedRefunds": "No failed refunds.",
     "noJobs": "No failed or stuck jobs.",
     "open": "open",
+    "order": "order",
     "orderId": "Order id",
     "organizer": "Organizer",
     "payouts": "Payouts",
@@ -129,6 +133,7 @@
     "refunds": "Refunds",
     "resolved": "resolved",
     "restart": "Restart",
+    "retryRefund": "Retry refund",
     "rollupMismatches": "Report mismatches: {count}",
     "runReconciliation": "Check against the payment provider",
     "sales": "Sales",
@@ -183,7 +188,9 @@
       "payment_created": "Payment created",
       "promo_applied": "Promo code applied",
       "promo_removed": "Promo code removed",
+      "refund_failed": "Refund rejected by the payment provider",
       "refund_requested": "Refund requested",
+      "refund_retried": "Refund sent again",
       "refund_succeeded": "Refund completed",
       "ticket_transferred": "Ticket transferred",
       "tickets_issued": "Tickets issued"
@@ -205,7 +212,18 @@
     "promoRemove": "Remove",
     "promoTitle": "Promo code",
     "providerBusy": "The payment provider is busy. Please try again in a moment.",
+    "refundBadge": {
+      "failed": "Refund failed",
+      "in_progress": "Refund in progress"
+    },
+    "refundState": {
+      "failed": "{amount}: the refund did not go through yet. Our finance team has been notified and will complete it.",
+      "pending": "{amount}: refund in progress",
+      "requested": "{amount}: refund in progress",
+      "succeeded": "{amount}: returned to your card"
+    },
     "refundedBanner": "This order was refunded.",
+    "refunds": "Refunds",
     "release": "Give up this hold",
     "remove": "Remove",
     "removeItem": "Remove {item}",

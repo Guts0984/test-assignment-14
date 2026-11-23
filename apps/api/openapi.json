@@ -4271,6 +4271,465 @@
         ]
       }
     },
+    "/api/tickets/{id}/refund-quote": {
+      "get": {
+        "operationId": "RefundsController_ticketQuote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundQuoteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (code VALIDATION_FAILED / IDEMPOTENCY_KEY_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials (code UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or resource (code FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (code NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with current state (codes CONFLICT, SEAT_UNAVAILABLE, LIMIT_EXCEEDED, ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Business rule violated (codes PROMO_INVALID, REFUND_NOT_ALLOWED, ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (code RATE_LIMITED, Retry-After header)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure (code INTERNAL)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "refunds"
+        ]
+      }
+    },
+    "/api/tickets/{id}/refund": {
+      "post": {
+        "operationId": "RefundsController_ticketRefund",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (code VALIDATION_FAILED / IDEMPOTENCY_KEY_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials (code UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or resource (code FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (code NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with current state (codes CONFLICT, SEAT_UNAVAILABLE, LIMIT_EXCEEDED, ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Business rule violated (codes PROMO_INVALID, REFUND_NOT_ALLOWED, ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (code RATE_LIMITED, Retry-After header)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure (code INTERNAL)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "refunds"
+        ]
+      }
+    },
+    "/api/finance/refunds/failed": {
+      "get": {
+        "operationId": "RefundsController_failed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinanceRefundListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (code VALIDATION_FAILED / IDEMPOTENCY_KEY_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials (code UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or resource (code FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (code NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with current state (codes CONFLICT, SEAT_UNAVAILABLE, LIMIT_EXCEEDED, ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Business rule violated (codes PROMO_INVALID, REFUND_NOT_ALLOWED, ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (code RATE_LIMITED, Retry-After header)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure (code INTERNAL)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "refunds"
+        ]
+      }
+    },
+    "/api/finance/refunds/{id}/retry": {
+      "post": {
+        "operationId": "RefundsController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (code VALIDATION_FAILED / IDEMPOTENCY_KEY_REQUIRED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials (code UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or resource (code FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (code NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with current state (codes CONFLICT, SEAT_UNAVAILABLE, LIMIT_EXCEEDED, ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Business rule violated (codes PROMO_INVALID, REFUND_NOT_ALLOWED, ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (code RATE_LIMITED, Retry-After header)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure (code INTERNAL)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "refunds"
+        ]
+      }
+    },
     "/api/finance/orders/{id}/refund": {
       "post": {
         "operationId": "RefundsController_financeRefund",
@@ -8505,6 +8964,15 @@
               "refunded"
             ]
           },
+          "refundState": {
+            "type": "string",
+            "enum": [
+              "none",
+              "in_progress",
+              "completed",
+              "failed"
+            ]
+          },
           "holdExpiresAt": {
             "type": "string",
             "nullable": true
@@ -8573,6 +9041,7 @@
           "id",
           "eventId",
           "status",
+          "refundState",
           "holdExpiresAt",
           "serverTime",
           "promoCode",
@@ -8609,6 +9078,15 @@
                     "expired",
                     "partially_refunded",
                     "refunded"
+                  ]
+                },
+                "refundState": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "in_progress",
+                    "completed",
+                    "failed"
                   ]
                 },
                 "holdExpiresAt": {
@@ -8679,6 +9157,7 @@
                 "id",
                 "eventId",
                 "status",
+                "refundState",
                 "holdExpiresAt",
                 "serverTime",
                 "promoCode",
@@ -8914,6 +9393,15 @@
                   "refunded"
                 ]
               },
+              "refundState": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "in_progress",
+                  "completed",
+                  "failed"
+                ]
+              },
               "holdExpiresAt": {
                 "type": "string",
                 "nullable": true
@@ -8982,6 +9470,7 @@
               "id",
               "eventId",
               "status",
+              "refundState",
               "holdExpiresAt",
               "serverTime",
               "promoCode",
@@ -9216,6 +9705,87 @@
           "feeAmount",
           "reason",
           "createdAt"
+        ]
+      },
+      "FinanceRefundListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "orderId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "finance",
+                    "event_cancelled",
+                    "late_payment"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "requested",
+                    "pending",
+                    "succeeded",
+                    "failed"
+                  ]
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "priceAmount": {
+                  "type": "integer"
+                },
+                "feeAmount": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "attempt": {
+                  "type": "integer"
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "eventTitle": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "orderId",
+                "kind",
+                "status",
+                "amount",
+                "priceAmount",
+                "feeAmount",
+                "reason",
+                "createdAt",
+                "attempt",
+                "updatedAt",
+                "eventTitle"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
         ]
       },
       "FinanceRefundRequestDto": {

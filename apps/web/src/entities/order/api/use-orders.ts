@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import '@/shared/api/client';
-import { ordersControllerGetOptions, ordersControllerHistoryOptions, ordersControllerListOptions } from '@/shared/api/generated/@tanstack/react-query.gen';
+import { ordersControllerGetOptions, ordersControllerHistoryOptions, ordersControllerListOptions, refundsControllerListOptions } from '@/shared/api/generated/@tanstack/react-query.gen';
 import { ordersControllerHold, ordersControllerRelease, ordersControllerRemoveItem } from '@/shared/api/generated/sdk.gen';
 import type { HoldDto, OrderDto } from '@/shared/api/generated/types.gen';
 import { getSocket } from '@/shared/lib/socket';
@@ -51,6 +51,13 @@ export const useOrder = (id: string) => {
 };
 
 export const useOrderHistory = (id: string) => useQuery({ ...ordersControllerHistoryOptions({ path: { id } }) });
+
+/** Refunds of the order with their real state at the payment provider; polled while money is still on its way. */
+export const useOrderRefunds = (id: string) =>
+  useQuery({
+    ...refundsControllerListOptions({ path: { id } }),
+    refetchInterval: (q) => (q.state.data?.items.some((r) => r.status === 'requested' || r.status === 'pending') ? 3_000 : false),
+  });
 
 /** Holds seats / places; the Idempotency-Key makes a double click or a retry harmless. */
 export const useHold = (eventId: string) => {

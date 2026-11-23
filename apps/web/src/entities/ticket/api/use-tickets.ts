@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import '@/shared/api/client';
 import { ticketsControllerListOptions } from '@/shared/api/generated/@tanstack/react-query.gen';
-import { refundsControllerQuote, refundsControllerRefund, ticketsControllerTransfer } from '@/shared/api/generated/sdk.gen';
+import { refundsControllerTicketQuote, refundsControllerTicketRefund, ticketsControllerTransfer } from '@/shared/api/generated/sdk.gen';
 import type { RefundDto, RefundQuoteDto, TicketDto } from '@/shared/api/generated/types.gen';
 import { useSession } from '@/shared/lib/session';
 
@@ -12,21 +12,22 @@ export const useMyTickets = () => {
   return useQuery({ ...ticketsControllerListOptions(), enabled: session.status === 'authenticated' });
 };
 
-export const useRefundQuote = (orderId: string | null) =>
+/** Refund terms for one ticket, as its holder sees them (also after the ticket was transferred to you). */
+export const useTicketRefundQuote = (ticketId: string) =>
   useQuery({
-    queryKey: ['refund-quote', orderId],
-    queryFn: async (): Promise<RefundQuoteDto> => (await refundsControllerQuote({ path: { id: orderId ?? '' }, throwOnError: true })).data,
-    enabled: orderId !== null,
+    queryKey: ['ticket-refund-quote', ticketId],
+    queryFn: async (): Promise<RefundQuoteDto> => (await refundsControllerTicketQuote({ path: { id: ticketId }, throwOnError: true })).data,
   });
 
-export const useRefund = () => {
+/** Returns exactly this ticket; the money goes back to the payment it was bought with. */
+export const useTicketRefund = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { readonly orderId: string; readonly itemIds: string[] | undefined; readonly key: string }): Promise<RefundDto> =>
-      (await refundsControllerRefund({ path: { id: input.orderId }, body: { itemIds: input.itemIds }, headers: { 'Idempotency-Key': input.key }, throwOnError: true })).data,
+    mutationFn: async (input: { readonly ticketId: string; readonly key: string }): Promise<RefundDto> =>
+      (await refundsControllerTicketRefund({ path: { id: input.ticketId }, headers: { 'Idempotency-Key': input.key }, throwOnError: true })).data,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ticketsControllerListOptions().queryKey });
-      void qc.invalidateQueries({ queryKey: ['refund-quote'] });
+      void qc.invalidateQueries({ queryKey: ['ticket-refund-quote'] });
     },
   });
 };

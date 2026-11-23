@@ -76,8 +76,30 @@ export const applyRefundSucceeded = async (tx: PoolClient, refundId: string, pro
   return true;
 };
 
-/** The provider refused for good: the refund is visible as failed, the tickets stay refunded, finance must act. */
+/**
+ * The provider refused for good. The ticket was already handed back (its seat may be resold), so it stays returned; what is
+ * left is a debt: the refund is marked failed, keeps its tickets (no second refund can be opened for them), shows on the
+ * order, and is listed for finance, who retry it with `retryRefund`.
+ */
 export const applyRefundFailed = async (tx: PoolClient, refundId: string): Promise<void> => {
-  await tx.query(`UPDATE refunds SET status = 'failed', updated_at = app_now() WHERE id = $1 AND status IN ('requested', 'pending')`, [refundId]);
-  await tx.query(`UPDATE refund_items SET active = false WHERE refund_id = $1 AND EXISTS (SELECT 1 FROM refunds r WHERE r.id = $1 AND r.status = 'failed')`, [refundId]);
+  const failed = await tx.query<{ order_id: string; amount: number }>(
+    `UPDATE refunds SET status = 'failed', updated_at = app_now() WHERE id = $1 AND status IN ('requested', 'pending') RETURNING order_id, amount`,
+    [refundId],
+  );
+  const row = failed.rows[0];
+  if (row) await history(tx, row.order_id, 'system', null, 'refund_failed', { refundId, amount: row.amount });
+};
+
+/** Finance sends a failed refund to the provider again, as a new attempt (new idempotency key). Only a failed refund can be retried. */
+export const retryRefund = async (tx: PoolClient, refundId: string, actorId: string): Promise<boolean> => {
+  const res = await tx.query<{ order_id: string; provider_attempt: number }>(
+    `UPDATE refunds SET status = 'requested', provider_attempt = provider_attempt + 1, updated_at = app_now()
+     WHERE id = $1 AND status = 'failed' RETURNING order_id, provider_attempt`,
+    [refundId],
+  );
+  const row = res.rows[0];
+  if (!row) return false;
+  await history(tx, row.order_id, 'finance', actorId, 'refund_retried', { refundId, attempt: row.provider_attempt });
+  await enqueue(tx, 'refund_execute', `refund:${refundId}:retry:${row.provider_attempt}`, { refundId });
+  return true;
 };

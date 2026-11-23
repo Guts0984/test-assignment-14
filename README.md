@@ -24,7 +24,7 @@ Nothing else is needed: the one-shot `migrate` service applies migrations and th
 | Payment stub (hosted page) | `http://localhost:8080/stub/pay/<id>` |
 | Mail inbox                 | `http://localhost:8025`               |
 
-Seed logins, password is `SEED_USER_PASSWORD` from `.env` (default `Passw0rd-dev-seed`): `buyer<N>@example.test`, `c`,
+Seed logins, password is `SEED_USER_PASSWORD` from `.env` (default `Passw0rd-dev-seed`): `buyer<N>@example.test`, `organizer<N>@example.test`,
 `scanner<N>@example.test`, `finance<N>@example.test`. Registration creates buyers only.
 
 ## Tests
@@ -168,6 +168,10 @@ The full list with reasons is `plan.md` (assumptions A-01 ... A-52, deviations D
 - Per-person limit (default 6) counts active holds plus paid, non-refunded tickets across orders; fully refunded tickets stop counting.
 - Hold: 10 minutes from the first seat, never extended; payment must finish inside it. A payment after expiry re-acquires the places (and the promo use) or is refunded in full automatically.
 - Refund is per ticket; a reschedule gives 14 days of full refunds, clipped to the new event start.
+- A ticket is returned by whoever holds it now (`POST /api/tickets/{id}/refund`), including the person it was transferred to. The money goes back to the payment it was bought with, the only place a refund can go. The original buyer cannot refund a ticket they gave away, so a transferred ticket cannot be revoked behind the recipient's back.
+- When the provider rejects a refund, the ticket stays returned (its seat may already be resold) and the money becomes a visible debt: the refund is `failed`, it keeps its tickets so no second refund can be opened for them, the order shows "Refund failed" (`refundState`), and finance sees it under Finance → Manual refund → Failed refunds and retries it (`POST /api/finance/refunds/{id}/retry`). Each retry is a new attempt at the provider with a new idempotency key; a retry of anything but a failed refund is refused, so a double click retries once.
+- Seeded payments and refunds also exist at the payment stub (migration `0009`), so seeded orders are refunded through the provider like any other.
+- Registration answers `409` for an email that already has an account. Hiding that properly needs an email-confirmation step, which the assignment does not ask for; registration is throttled per address instead (`REGISTER_THROTTLE_*`).
 - Waitlist: one offer at a time, valid 30 minutes, the seat is reserved for the offered person.
 - Transfer needs an existing account (by email); ownership moves at once and the QR version is bumped, so the old code is refused.
 - The payment stub is a module inside `api` (`/stub`), so compose matches the required services; it signs webhooks (HMAC), delivers them from a durable outbox, and its chaos mode (duplicate, delayed, out-of-order, lost, every 10th request `503`) is deterministic. The 20 requests per second limit is global across both api copies (Redis sliding window, fail-closed).

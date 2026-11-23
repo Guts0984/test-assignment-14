@@ -90,7 +90,7 @@ export const runSeed = async (pool: Pool, params: SeedParams, passwordHash: stri
     ]);
     for (const [name, sql] of [['users', USERS_SQL], ['buyers', BUYERS_SQL], ['venues', VENUES_SQL], ['zones', ZONES_SQL], ['events', EVENTS_SQL], ['tiers', TIERS_SQL]] as const) await stage(client, name, sql, log);
     await scaleSales(client, params);
-    for (const [name, sql] of [['ticket plan', TICKET_PLAN_SQL], ['ticket pricing', TICKET_PRICING_SQL], ['orders', ORDERS_SQL], ['refunds', REFUNDS_SQL], ['seats', SEATS_SQL]] as const) await stage(client, name, sql, log);
+    for (const [name, sql] of [['ticket plan', TICKET_PLAN_SQL], ['ticket pricing', TICKET_PRICING_SQL], ['orders', ORDERS_SQL], ['refunds', REFUNDS_SQL], ['provider records', `SELECT seed_provider_records()`], ['seats', SEATS_SQL]] as const) await stage(client, name, sql, log);
     await stage(client, 'pause triggers', PAUSE_TRIGGERS_SQL, log);
     for (const [name, sql] of [['accounts', ACCOUNTS_SQL], ['payment ledger', PAYMENT_LEDGER_SQL], ['refund ledger', REFUND_LEDGER_SQL], ['payouts', PAYOUTS_SQL], ['rollups', ROLLUP_SQL]] as const) await stage(client, name, sql, log);
     await stage(client, 'resume triggers', RESUME_TRIGGERS_SQL, log);

@@ -25,6 +25,10 @@ export const refundSchema = z.object({
   createdAt: z.string(),
 });
 
+/** A refund as finance sees it in the list of refunds that need action. */
+export const financeRefundSchema = refundSchema.extend({ attempt: z.number().int(), updatedAt: z.string(), eventTitle: z.string() });
+export const financeRefundListSchema = z.object({ items: z.array(financeRefundSchema) });
+
 export const ticketSchema = z.object({
   id: uuidSchema,
   orderId: uuidSchema,
