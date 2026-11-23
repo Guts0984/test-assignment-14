@@ -31,6 +31,7 @@ test('seats -> promo -> stub payment -> ticket -> transfer -> the scanner accept
     await page.waitForURL(/\/stub\/pay\//, { timeout: 5_000 });
   }).toPass({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Success' }).click();
+  await page.waitForURL((u) => !u.pathname.includes('/stub/'), { timeout: 15_000 }); // back in the shop: the payment is settled
   await page.goto(`${BASE}/en/tickets`);
   const qr = page.getByTestId('ticket-qr').first();
   await expect(qr).toBeVisible({ timeout: 60_000 });
