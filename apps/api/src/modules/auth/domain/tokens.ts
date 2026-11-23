@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { SignJWT, jwtVerify } from 'jose';
 import type { Role } from '@ticketing/shared';
 
@@ -48,4 +48,25 @@ export const constantTimeEquals = (a: string, b: string): boolean => {
   const ba = Buffer.from(a);
   const bb = Buffer.from(b);
   return ba.length === bb.length && timingSafeEqual(ba, bb);
+};
+
+const sealKey = (pepper: string): Buffer => createHash('sha256').update(`refresh-successor:${pepper}`).digest();
+
+/** AES-256-GCM, so the successor token never sits in the database in the clear. Format: base64url(iv | tag | ciphertext). */
+export const sealToken = (pepper: string, token: string): string => {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', sealKey(pepper), iv);
+  const body = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), body]).toString('base64url');
+};
+
+export const openToken = (pepper: string, sealed: string): string | null => {
+  try {
+    const raw = Buffer.from(sealed, 'base64url');
+    const decipher = createDecipheriv('aes-256-gcm', sealKey(pepper), raw.subarray(0, 12));
+    decipher.setAuthTag(raw.subarray(12, 28));
+    return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
 };

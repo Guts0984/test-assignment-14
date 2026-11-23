@@ -22,6 +22,7 @@ export const bootApi = async (db: TestDb, overrides: Readonly<Record<string, str
     REGISTER_THROTTLE_IP_MAX: '100000',
     LOGIN_THROTTLE_IP_MAX: '100000',
     LOGIN_THROTTLE_ACCOUNT_IP_MAX: '100000',
+    REFRESH_REPLAY_GRACE_MS: '0', // the theft tests replay at once; the grace period has its own test
     ...overrides,
   });
   if (!parsed.ok) throw new Error(`invalid test env: ${parsed.errors.join('; ')}`);

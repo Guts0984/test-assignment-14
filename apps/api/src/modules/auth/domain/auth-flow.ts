@@ -34,8 +34,8 @@ interface UserRow {
 
 const toView = (u: UserRow): UserView => ({ id: u.id, email: u.email, displayName: u.display_name, role: u.role });
 
-const mintPair = async (pool: Pool, cfg: AuthConfig, user: UserRow, familyId?: string): Promise<TokenPair> => {
-  const refresh = await issueRefreshToken(pool, cfg, user.id, familyId);
+const mintPair = async (pool: Pool, cfg: AuthConfig, user: UserRow): Promise<TokenPair> => {
+  const refresh = await issueRefreshToken(pool, cfg, user.id);
   const accessToken = await signAccessToken(cfg.accessSecret, cfg.accessTtlSeconds, { sub: user.id, role: user.role, sid: refresh.familyId });
   return { accessToken, refreshToken: refresh.token, expiresInSeconds: cfg.accessTtlSeconds, user: toView(user) };
 };
@@ -73,7 +73,8 @@ export const refresh = async (pool: Pool, cfg: AuthConfig, token: string, onSess
   const res = await pool.query<UserRow>(`SELECT * FROM users WHERE id = $1`, [outcome.userId]);
   const user = res.rows[0];
   if (!user) return err(appError('UNAUTHENTICATED', 'Invalid refresh token'));
-  return ok(await mintPair(pool, cfg, user, outcome.familyId));
+  const accessToken = await signAccessToken(cfg.accessSecret, cfg.accessTtlSeconds, { sub: user.id, role: user.role, sid: outcome.familyId });
+  return ok({ accessToken, refreshToken: outcome.token, expiresInSeconds: cfg.accessTtlSeconds, user: toView(user) });
 };
 
 export const logout = async (pool: Pool, cfg: AuthConfig, token: string): Promise<string | null> => revokeByToken(pool, cfg, token);

@@ -17,7 +17,7 @@ export class AuthService {
     @Inject(ENV) private readonly env: Env,
     @Inject(RT_PUBLISHER) private readonly rt: RealtimePublisher,
   ) {
-    this.cfg = { accessSecret: env.JWT_ACCESS_SECRET, accessTtlSeconds: env.ACCESS_TTL_SECONDS, pepper: env.JWT_REFRESH_PEPPER, refreshTtlSeconds: env.REFRESH_TTL_SECONDS };
+    this.cfg = { accessSecret: env.JWT_ACCESS_SECRET, accessTtlSeconds: env.ACCESS_TTL_SECONDS, pepper: env.JWT_REFRESH_PEPPER, refreshTtlSeconds: env.REFRESH_TTL_SECONDS, replayGraceMs: env.REFRESH_REPLAY_GRACE_MS };
   }
 
   /** Account creation is throttled per client IP so one address cannot mass-produce accounts or probe which emails exist. Fails open when Redis is down. */
